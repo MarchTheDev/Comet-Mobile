@@ -222,7 +222,7 @@ final class Workspace {
                 guard Workspace.searchableExtensions.contains(ext) else { continue }
                 let attributes = try? fileManager.attributesOfItem(atPath: path)
                 guard let size = (attributes?[.size] as? NSNumber)?.uint64Value else { continue }
-                guard size <= UInt64(maximumTextBytes) else { continue }
+                guard size <= UInt64(Workspace.maximumTextBytes) else { continue }
                 guard let data = fileManager.contents(atPath: path),
                       let text = String(data: data, encoding: .utf8),
                       !text.contains("\u{0}") else { continue }

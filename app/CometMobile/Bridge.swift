@@ -204,7 +204,9 @@ final class Bridge {
                 complete(.value(nil))
 
             case "search_vault":
-                complete(.value(workspace.search(vault: args.string("vault"), query: args.string("query"))))
+                let vault = try args.string("vault")
+                let query = try args.string("query")
+                complete(.value(workspace.search(vault: vault, query: query)))
 
             case "open_vault":
                 pickers.pickFolder { result in
