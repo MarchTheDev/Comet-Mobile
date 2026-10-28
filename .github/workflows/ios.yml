@@ -52,7 +52,9 @@ jobs:
         run: scripts/prepare.sh
 
       - name: Check the Tauri bridge against the real @tauri-apps packages
-        run: node tools/test-shim.mjs
+        run: |
+          node tools/test-shim.mjs 2>&1 | tee .shim-test.log
+          grep -E "^bridge: " .shim-test.log | while IFS= read -r line; do echo "::notice::$line"; done
 
       # The mobile shell is proven against Comet's own App.tsx, not a mock, so
       # this runs the real UI in jsdom and drives it through the buttons the
@@ -60,7 +62,9 @@ jobs:
       # IPA is built, which is the only way to notice from CI: nothing here can
       # see the screen.
       - name: Check the mobile shell against the real Comet UI
-        run: node tools/test-mobile.mjs
+        run: |
+          node tools/test-mobile.mjs 2>&1 | tee .mobile-test.log
+          grep -E "^mobile shell: " .mobile-test.log | while IFS= read -r line; do echo "::notice::$line"; done
 
       - name: Install XcodeGen
         run: brew install xcodegen

@@ -414,5 +414,11 @@ dom.window.close();
 rmSync(work, { recursive: true, force: true });
 delete globalThis.IS_REACT_ACT_ENVIRONMENT;
 
-console.log(failures === 0 ? `\nAll mobile shell checks passed.` : `\n${failures} mobile shell check(s) failed.`);
+// One machine-readable line, so CI can surface the outcome as an annotation
+// even when the run's log is not reachable.
+const total = results.length;
+const summary = failures === 0
+  ? `mobile shell: ${total} checks, all passed`
+  : `mobile shell: ${total - failures}/${total} checks passed, ${failures} failed`;
+console.log(`\n${summary}`);
 process.exit(failures === 0 ? 0 : 1);

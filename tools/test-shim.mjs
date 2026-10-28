@@ -21,7 +21,9 @@ const packages = path.join(cometWeb, "node_modules", "@tauri-apps");
 const BASE = "http://127.0.0.1:47823";
 
 let failures = 0;
+const results = [];
 function check(name, condition, detail) {
+  results.push(condition);
   if (condition) {
     console.log(`  ok    ${name}`);
   } else {
@@ -145,5 +147,11 @@ check("autostart is answered", lastCall().cmd === "plugin:autostart|is_enabled")
 // 12. Resource plumbing used by transforms Comet does not exercise.
 check("transformCallback hands back an id", typeof core.transformCallback(() => {}) === "number");
 
-console.log(failures === 0 ? "\nAll bridge checks passed." : `\n${failures} bridge check(s) failed.`);
+// One machine-readable line, so CI can surface the outcome as an annotation
+// even when the run's log is not reachable.
+const total = results.length;
+const summary = failures === 0
+  ? `bridge: ${total} checks, all passed`
+  : `bridge: ${total - failures}/${total} checks passed, ${failures} failed`;
+console.log(`\n${summary}`);
 process.exit(failures === 0 ? 0 : 1);
