@@ -8,6 +8,10 @@
 # Comet page in app/Resources/www and its icons in the asset catalog.
 name: CometMobile
 options:
+  # XcodeGen's default is the Xcode 16 project format (objectVersion 77), which
+  # Xcode 15 cannot open — and Xcode 15 is what the macos-14 runner has. This
+  # format is readable by every Xcode from 14 onwards.
+  projectFormat: xcode14_0
   createIntermediateGroups: true
   deploymentTarget:
     iOS: "16.0"
