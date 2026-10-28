@@ -1,117 +1,100 @@
 # Comet for iOS
 
 An iPhone and iPad build of [Comet](https://github.com/MarchTheDev/Comet), the
-local-first notes and files workspace — packaged as a plain, **unsigned `.ipa`**
-you can sideload. No TestFlight, no App Store, no Apple Developer account needed
-to *build* one.
+local-first notes and files workspace, packaged as a plain **unsigned `.ipa`**
+for sideloading. No TestFlight, no App Store, no developer account needed to
+build one.
 
 Comet itself is not modified. This repository is a shell that runs the real Comet
 interface, unchanged, on top of a small native iOS host.
 
-> **Status:** the pipeline builds a real, installable IPA on every push (see
-> [`Actions → iOS`](../../actions/workflows/ios.yml)). That proves it compiles
-> and packages. It does not prove every screen behaves on every device — if
-> something looks wrong on yours, open an issue with what you saw.
+> **Status:** every build produces a real, installable IPA and checks its
+> contents. That proves it compiles and packages; it does not prove every screen
+> behaves on every device.
 
----
+## How it works
 
-## Short answer on Expo
-
-You asked whether [Expo](https://expo.dev) could help. It can't, for a specific
-reason worth knowing before you spend time on it:
-
-**Comet is a Tauri app, not a React Native app.** Its interface is React and
-Vite, and everything it can do — reading notes from a folder, watching for
-changes, the tray icon, autostart, the keyring — is Rust behind Tauri's IPC.
-Expo compiles *React Native* to native views; it has no React DOM, no
-`localStorage`, no Tauri backend. Handing Comet's source to Expo would produce an
-app that renders nothing and implements none of its file commands.
-
-So the question is not "which framework" but "how does a desktop web app with a
-native file backend run on iOS". The answer used here:
+Comet is a Tauri app: a React/Vite interface over a Rust backend, with nothing in
+common with React Native. Rather than reimplement the interface, the shell keeps
+it and replaces only the native half.
 
 - The **page** is unchanged, served from `http://127.0.0.1:<port>` inside the app
-  (WKWebView). Loopback is a real, *secure* origin, so `localStorage`,
-  IndexedDB and WebCrypto — which Comet's settings, tags and password vault need
-  — all work. A `file://` page would not be a secure context and the password
-  vault would not work at all.
+  (WKWebView). Loopback is a real, *secure* origin, so `localStorage`, IndexedDB
+  and WebCrypto — which Comet's settings, tags and password vault need — all
+  work. A `file://` page is an opaque origin, and the password vault would not
+  work at all.
 - The **native commands** (`list_vault`, `read_note`, `write_note`, imports,
-  pickers…) are reimplemented in Swift with the same names, arguments and JSON
+  pickers…) are implemented in Swift with the same names, arguments and JSON
   shapes as Comet's Rust ones.
 - Tauri's JavaScript API is provided by one injected shim
   (`app/Resources/shim.js`) that implements `window.__TAURI_INTERNALS__`. That is
   the single funnel every `@tauri-apps/*` call goes through, so Comet's own
   bundle runs untouched.
 
-## Getting the IPA
+## The IPA
 
-1. Open **Actions → iOS → Run workflow** (or just push a commit).
-2. Wait ~10 minutes (a macOS runner has to be free first).
-3. Download the **`Comet-unsigned-ipa`** artifact at the bottom of the run and
-   unzip it — GitHub always wraps artifacts in a `.zip`. Inside is
-   `Comet-unsigned.ipa`.
-
-The run's summary also prints what ended up inside the package. If you would
-rather not use CI at all, `scripts/build-ipa.sh` does the same thing on your own
-Mac.
-
-By default it builds the pinned Comet commit in `scripts/prepare.sh`. Pass a
-different `comet_ref` in the workflow input to build, say, `main`:
+Each build writes `out/Comet-unsigned.ipa` and attaches it to the `ios-latest`
+draft release, so it downloads as an IPA rather than a zipped artifact. A build
+also reports what it packaged:
 
 ```
-Actions → iOS → Run workflow → comet_ref: main
+ipa: out/Comet-unsigned.ipa (5.6M)
+bundle: com.marco.comet 0.1.0, minimum iOS 16.0
+executable: Comet, architectures arm64
+page: index.html 3.5M, 200 PDF.js resources, shim.js 8.0K
+signing: code signature no, provisioning profile no
+assets: Assets.car 176K
 ```
 
 ## Installing it
 
-The IPA is unsigned on purpose — your tool signs it with your own certificate:
+The IPA is unsigned on purpose — a sideloading tool signs it with a certificate
+of its own:
 
-- **Sideloadly** (Windows/macOS) — drop the `.ipa` in, sign in with your Apple ID.
-- **AltStore / SideStore** — add the IPA as a source file.
-- **Xcode** — `xcodebuild` it yourself, or drag `Comet.app` onto a connected
-  device in *Window → Devices and Simulators* (this needs a team in the project).
+- **Sideloadly** (Windows/macOS): drop the `.ipa` in and sign in with an Apple ID.
+- **AltStore / SideStore**: add the IPA as the source file.
+- **Xcode**: drag `Comet.app` onto a connected device in *Window → Devices and
+  Simulators*, with a team set in the project.
 
 Notes:
 
-- With a **free Apple ID** the install lasts **7 days** before it has to be
-  re-signed. A paid developer account gives a year.
-- Your signing tool rewrites the bundle identifier (`com.marco.comet` here), and
-  each identifier gets its own separate storage. Changing it looks like a fresh
-  install — settings, tags and the password vault do not move across.
-- Nothing here needs a Mac except to build from source. The artifact comes from
-  GitHub's macOS runners.
+- A **free Apple ID** gives a 7-day install that has to be re-signed afterwards.
+  A paid developer account gives a year.
+- Signing tools rewrite the bundle identifier (`com.marco.comet` here), and each
+  identifier gets separate storage. Changing it looks like a fresh install:
+  settings, tags and the password vault do not move across.
+- Only the build needs a Mac; the IPA comes out of GitHub's macOS runners.
 
 ## What works
 
 | Area | Notes |
 | --- | --- |
-| Workspaces | Pick any folder — this app's `Comet` folder, another on the device, or one on iCloud Drive. Remembered across launches with a security-scoped bookmark. |
+| Workspaces | Any folder — the app's own `Comet` folder, another on the device, or one on iCloud Drive. Remembered across launches with a security-scoped bookmark. |
 | Notes and files | Reading, editing, autosave, rename, move, delete, new notes and folders, search, tags, pins, favourites. Same path rules and refusals as the desktop app. |
 | Views | List, gallery, Tree, Brain, calendar, to-do boards, whiteboards, settings. |
-| Documents | Markdown editor, PDFs (with the bundled PDF.js), EPUB reader, images, audio and video players. |
-| Passwords | The AES-GCM vault works: loopback is a secure origin, so WebCrypto is available. Backups are written to `Comet backups/` in the app's Documents folder and offered through the share sheet. |
+| Documents | Markdown editor, PDFs with the bundled PDF.js, EPUB reader, images, audio and video players. |
+| Passwords | The AES-GCM vault works, because loopback is a secure origin and WebCrypto is available. Backups are written to `Comet backups/` in the app's Documents folder and offered through the share sheet. |
 | Imports | The file picker and Comet's 512 KB chunked upload path, staged `.part` files included, so a cancelled import never leaves a half-written note. |
 
 ## What does not
 
 - **Google Calendar and Drive.** The desktop app uses a Desktop OAuth client and
-  the OS keyring. Not connected in this build; those settings say so instead of
-  failing silently. The local calendar is unaffected.
+  the OS keyring. Not connected in this build; those settings report that they
+  are unavailable. The local calendar is unaffected.
 - **Tray, launch at login, close-to-tray.** Desktop ideas, answered as
   unavailable so the switches do not lie.
-- **Desktop drag-and-drop from Finder.** There is no Finder. Use the picker or
-  Quick capture.
-- **In-app updates.** Comet's updater installs a Windows/macOS build. Here you
-  install a newer IPA.
+- **Desktop drag-and-drop from Finder.** Use the picker or Quick capture.
+- **In-app updates.** Comet's updater installs a Windows/macOS build; here a new
+  IPA is installed instead.
 
-## Building it yourself
+## Building it
 
 Requirements: macOS with Xcode, plus Node 22 and
 [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```sh
-scripts/build-ipa.sh        # fetches Comet, builds the page, builds the app
-open out/Comet-unsigned.ipa # well, drag it to your sideloading tool
+scripts/build-ipa.sh          # fetch Comet, build the page, build the app
+scripts/verify-ipa.sh         # optional: report what ended up in the bundle
 ```
 
 The two halves:
@@ -132,10 +115,10 @@ Set a team in *Signing & Capabilities*, then run on a device.
 
 ### Keeping up with Comet
 
-`scripts/prepare.sh` pins a commit so a build does not change under you:
+`scripts/prepare.sh` pins a commit so a build does not change underfoot:
 
 ```sh
-COMET_REF=main scripts/prepare.sh          # or a tag, or a full commit hash
+COMET_REF=main scripts/prepare.sh          # a branch, a tag, any commit
 COMET_REPO=https://github.com/you/fork.git scripts/prepare.sh
 ```
 
@@ -144,7 +127,7 @@ COMET_REPO=https://github.com/you/fork.git scripts/prepare.sh
 ```
 Comet.ipa
 └── Comet.app
-    ├── www/                  Comet's real web bundle (index.html + PDF.js assets)
+    ├── www/                  Comet's web bundle (index.html + PDF.js assets)
     ├── shim.js               implements window.__TAURI_INTERNALS__
     └── Comet                 Swift host
         ├── HTTPServer        loopback HTTP/1.1 on 127.0.0.1:47823
@@ -155,15 +138,15 @@ Comet.ipa
 ```
 
 A command travels: page → `invoke()` → `POST /__invoke` → `Bridge` → `Workspace`
-→ JSON back. Deliveries of workspace media go the other way: page →
-`convertFileSrc()` → `http://127.0.0.1:<port>/__file?path=…` → bytes with
-`Content-Range` support, which is what makes seeking in audio and video work.
+→ JSON back. Workspace media goes the other way: page → `convertFileSrc()` →
+`http://127.0.0.1:<port>/__file?path=…` → bytes with `Content-Range` support,
+which is what makes seeking in audio and video work.
 
 The port is fixed (`47823`, with a few fallbacks) because the page's origin — and
-therefore every byte Comet has saved in `localStorage` — is keyed by host *and*
+therefore everything Comet has saved in `localStorage` — is keyed by host *and*
 port. A changing port would look like a fresh install every launch.
 
-### Notes on a few deliberate choices
+### A few deliberate choices
 
 - **A local server rather than a custom URL scheme.** A custom scheme would be
   tidier, but WKWebView does not treat it as a secure context, so
@@ -181,23 +164,29 @@ port. A changing port would look like a fresh install every launch.
 ```
 app/CometMobile/        the Swift host
 app/Resources/          Info.plist, the bridge shim, generated www/ and icons
-app/Resources/Assets…   committed catalog, icons copied in at build time
 project.yml             XcodeGen spec (the .xcodeproj is generated)
 scripts/prepare.sh      fetch Comet, build the page, stage assets
 scripts/build-ipa.sh    build and package the IPA
+scripts/verify-ipa.sh   report what is inside a finished IPA
 tools/test-shim.mjs     drives the shim with the genuine @tauri-apps packages
-.github/workflows/      CI: builds the IPA on every push
+.github/workflows/      CI: builds the IPA and publishes the draft release
 ```
+
+## Checks
 
 `node tools/test-shim.mjs` is worth running after touching the shim: it loads
 `shim.js` exactly as the app does, then calls the real `@tauri-apps/api`,
 `plugin-dialog`, `plugin-opener` and `plugin-autostart` packages and asserts the
 commands that reach the native side.
 
+`scripts/verify-ipa.sh out/Comet-unsigned.ipa` unpacks a finished IPA and checks
+the executable architecture, the page, the icon catalog and that no signing
+material came along for the ride.
+
 ## Licence
 
 Comet is GPL-3.0, and so is this shell that builds and runs it — see
-[`LICENSE`](LICENSE). The `.ipa` this produces contains Comet and is therefore
-covered by the same licence: it is fine to build, install and share, and the
-corresponding source is this repository plus the pinned Comet commit recorded in
+[`LICENSE`](LICENSE). The `.ipa` it produces contains Comet and is covered by the
+same licence: building, installing and sharing it is fine, and the corresponding
+source is this repository plus the pinned Comet commit recorded in
 `scripts/prepare.sh`.
