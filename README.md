@@ -60,9 +60,10 @@ Notes:
 
 - A **free Apple ID** gives a 7-day install that has to be re-signed afterwards.
   A paid developer account gives a year.
-- Signing tools rewrite the bundle identifier (`com.marco.comet` here), and each
-  identifier gets separate storage. Changing it looks like a fresh install:
-  settings, tags and the password vault do not move across.
+- Signing tools rewrite the bundle identifier (`com.marco.comet` by default, or
+  set `BUNDLE_ID` when building), and each identifier gets separate storage.
+  Changing it looks like a fresh install: settings, tags and the password vault
+  do not move across.
 - Only the build needs a Mac; the IPA comes out of GitHub's macOS runners.
 
 ## What works

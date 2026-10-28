@@ -38,6 +38,9 @@ fi
 
 VERSION="$(cat "$ROOT/.comet-version" 2>/dev/null || echo 0.1.0)"
 BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%Y%m%d%H%M)}"
+# Sideloading tools derive their own identifier, but two apps signed under the
+# same one cannot both be installed, so the build allows choosing it.
+BUNDLE_ID="${BUNDLE_ID:-com.marco.comet}"
 
 if ! command -v xcodebuild >/dev/null; then
   echo "error: xcodebuild is missing. iOS apps can only be built on macOS with Xcode." >&2
@@ -86,7 +89,8 @@ xcodebuild \
   DEVELOPMENT_TEAM="" \
   ONLY_ACTIVE_ARCH=NO \
   MARKETING_VERSION="$VERSION" \
-  CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+  PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID"
 
 APP="$ROOT/build/Build/Products/Release-iphoneos/Comet.app"
 if [ ! -d "$APP" ]; then
@@ -109,4 +113,4 @@ IPA="$ROOT/out/Comet-unsigned.ipa"
 log "Built $IPA ($(du -h "$IPA" | cut -f1))"
 echo
 echo "Install it with Sideloadly, AltStore/SideStore, or Xcode's Devices window."
-echo "The bundle identifier is $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" 2>/dev/null || echo 'com.marco.comet')."
+echo "The bundle identifier is $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" 2>/dev/null || echo "$BUNDLE_ID")."
