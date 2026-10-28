@@ -259,6 +259,7 @@ check("the dock is Files, Search, Calendar, Library",
   tabs.map((tab) => tab.dataset.tab).join(",") === "files,search,calendar,library",
   tabs.map((tab) => tab.dataset.tab).join(","));
 check("creating is its own floating button", Boolean(document.querySelector(".m-create")));
+check("there is no sidebar chrome to open", !document.querySelector(".m-bar-menu") && !document.querySelector(".sidebar-toggle, .sidebar-close-mobile")?.offsetParent);
 
 const header = document.querySelector(".m-bar");
 const title = header?.querySelector("strong")?.textContent ?? "";
@@ -315,14 +316,66 @@ check("the Files tab is marked current, and only it", filesTab.getAttribute("ari
   calendarTab.getAttribute("aria-current") !== "page");
 check("the files came back", document.querySelectorAll(".workspace-entry").length === files.length);
 
-const sidebarBefore = document.querySelector(".sidebar")?.classList.contains("is-closed");
+/* ------------------------------------------------------------ the library */
+
 libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 await settle(4);
-const sidebarAfter = document.querySelector(".sidebar")?.classList.contains("is-closed");
-check("Library opens the drawer", sidebarBefore === true && sidebarAfter === false, `${sidebarBefore} -> ${sidebarAfter}`);
+const library = document.querySelector(".m-library");
+check("Library opens a sheet, not a sidebar", Boolean(library) && Boolean(document.querySelector(".m-library-backdrop")));
+check("the sheet offers the workspace you are in",
+  Boolean(library?.querySelector('[data-role="workspace-name"]')?.textContent?.trim()));
+const libraryRows = [...(library?.querySelectorAll(".m-library-row[data-destination]") ?? [])];
+check("the sheet offers every destination the sidebar held",
+  libraryRows.map((row) => row.dataset.destination).join(",") ===
+  "files,pinned,favorites,tree,brain,calendar,passwords,tags,settings",
+  libraryRows.map((row) => row.dataset.destination).join(",") || "none");
+const appFilesCount = [...document.querySelectorAll(".sidebar .nav-item")]
+  .find((item) => item.textContent.trim().startsWith("All files"))?.querySelector("small")?.textContent?.trim();
+check("the sheet shows the counts the app shows, not its own",
+  libraryRows.find((row) => row.dataset.destination === "files")?.querySelector('[data-role="count"]')?.textContent === appFilesCount,
+  `${libraryRows.find((row) => row.dataset.destination === "files")?.querySelector('[data-role="count"]')?.textContent} vs app ${appFilesCount}`);
+
+// Picking a destination has to work while Comet's sidebar is display: none,
+// which is the whole point of building the sheet.
+[...library.querySelectorAll(".m-library-row")].find((row) => row.dataset.destination === "settings")
+  .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(10);
+check("picking Settings reaches the app's settings page", Boolean(document.querySelector(".settings-page")));
+check("and the sheet gets out of the way", !document.querySelector(".m-library"));
+
 libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 await settle(4);
-check("Library closes it again", document.querySelector(".sidebar")?.classList.contains("is-closed") === true);
+document.querySelector(".m-library-done").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(3);
+check("Done closes the sheet", !document.querySelector(".m-library"));
+
+// The workspace switcher is Comet's own menu, which renders inside the sidebar;
+// the sheet's row has to open it even though the sidebar is never drawn.
+libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+document.querySelector(".m-library-workspace").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(6);
+check("the workspace row opens the app's own switcher", Boolean(document.querySelector(".vault-dropdown")));
+check("and the library sheet is gone first", !document.querySelector(".m-library"));
+// Close it through the app's own trigger, the way the scrim does.
+document.querySelector(".workspace-picker").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+check("the switcher closes again", !document.querySelector(".vault-dropdown"));
+
+/* ------------------------------------------------------------- the search */
+
+// Comet's own search overlay, opened from the button the desktop top bar holds.
+document.querySelector('.m-dock-item[data-tab="search"]').dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(8);
+check("Search opens the app's own search overlay", Boolean(document.querySelector(".search-dialog")));
+check("the search field takes the focus", document.activeElement === document.querySelector(".search-dialog input"));
+document.querySelector(".search-backdrop").dispatchEvent(new window.MouseEvent("mousedown", { bubbles: true }));
+await settle(6);
+check("and the overlay closes", !document.querySelector(".search-dialog"));
+
+// Back to the file list for the rest of the run.
+filesTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(8);
 
 /* ---------------------------------------------- what makes it feel native */
 
@@ -364,9 +417,10 @@ check("back is offered exactly when there is somewhere to go",
 const anchors = {
   files: () => [...document.querySelectorAll(".sidebar .nav-item")].find((item) => item.textContent.trim().startsWith("All files")),
   calendar: () => [...document.querySelectorAll(".sidebar .nav-item")].find((item) => item.textContent.trim().startsWith("Calendar")),
-  search: () => document.querySelector(".sidebar-search"),
+  settings: () => [...document.querySelectorAll(".sidebar .nav-item")].find((item) => item.textContent.trim().startsWith("Settings")),
+  search: () => document.querySelector('[aria-label="Search notes"]'),
   create: () => document.querySelector('[aria-label="Add file or upload"]'),
-  drawer: () => document.querySelector(".sidebar-toggle"),
+  workspace: () => document.querySelector(".workspace-picker"),
   back: () => document.querySelector('[aria-label="Go back"]')
 };
 for (const [name, resolve] of Object.entries(anchors)) {
@@ -461,15 +515,21 @@ const veil = (selector) => {
   return match ? match[0] : "";
 };
 check("the full-screen veils do not blur",
-  /backdrop-filter:\s*none/.test(veil(".sidebar-scrim")) && /backdrop-filter:\s*none/.test(veil(".modal-backdrop")),
-  `${veil(".sidebar-scrim").slice(0, 40)} / ${veil(".modal-backdrop").slice(0, 40)}`);
+  /backdrop-filter:\s*none/.test(veil(".modal-backdrop")),
+  veil(".modal-backdrop").slice(0, 60));
+
+// No sidebar, anywhere: not drawn, not sliding in, not peeking.
+check("the sidebar is never drawn",
+  /html\.comet-mobile \.sidebar,[^{]*\{[^}]*display:\s*none\s*!important/.test(css));
+check("the sidebar's menu still becomes a sheet",
+  /\.sidebar:has\(\.vault-dropdown\)\s*\{[^}]*border-radius:\s*26px/.test(css));
 
 // The glass is only worth having if it is actually glass, and only safe where
 // it is small.
 const dockRule = css.match(/html\.comet-mobile \.m-dock \{[^}]*\}/)?.[0] ?? "";
 check("the dock is a floating glass capsule",
   /backdrop-filter:\s*saturate\([^)]*\)\s*blur\(\d+px\)/.test(dockRule) &&
-  /border-radius:\s*26px/.test(dockRule) &&
+  /border-radius:\s*2[0-9]px/.test(dockRule) &&
   /position:\s*fixed/.test(dockRule),
   dockRule.slice(0, 80));
 check("the glass has a fallback where it is not supported", /@supports not/.test(css));
@@ -482,7 +542,7 @@ check("the document heading is a large title",
   headingRule.slice(0, 80));
 check("no injected element is positioned over the content",
   !/\.m-large-title/.test(css));
-const layers = [".sidebar-scrim", ".sidebar", ".modal-backdrop", ".context-menu"].map((selector) => {
+const layers = [".modal-backdrop", ".context-menu", ".m-library-backdrop", ".m-library"].map((selector) => {
   const match = css.match(new RegExp(`html\\.comet-mobile ${selector.replace(".", "\\.")} \\{ z-index: (\\d+)`));
   return match ? Number(match[1]) : NaN;
 });

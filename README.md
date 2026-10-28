@@ -7,8 +7,8 @@ build one.
 
 Comet itself is not modified. This repository is a shell that runs the real Comet
 interface, unchanged, on top of a small native iOS host, plus a mobile layer that
-gives it a phone's shape: a translucent bar, a floating glass dock, sheets, and
-Comet's content restyled for touch. The layer is injected CSS and JavaScript
+gives it a phone's shape: no sidebar at all, a translucent bar, a floating glass
+dock, a Library sheet, and Comet's content restyled for touch. The layer is injected CSS and JavaScript
 (`app/Resources/mobile/`), so updating the pinned Comet commit does not create
 conflicts.
 
@@ -37,44 +37,44 @@ it and replaces only the native half.
 
 ## The mobile interface
 
-The desktop app is a sidebar beside a workspace, with a top bar of controls and
-menus that open on hover. On a phone that is a cropped desktop. The shell
-therefore does not shrink it: it gives the app an iPhone's structure, and only
-the parts a web view cannot do for itself — haptics, the status bar, the edge
-swipe — come from Swift.
-
-**The chrome is ours; the content is Comet's.**
+The interface on a phone is **not** a narrower desktop. There is no sidebar at
+all: a 330 pt drawer over a 390 pt screen is one app covering another, and
+everything in it exists to answer one of two questions — where am I, and what
+else can I do. Those are a dock and a sheet.
 
 | | |
 | --- | --- |
-| Bar | 44 pt, transparent over the Matterhorn, turning to glass the moment content scrolls under it. Menu on the leading edge, the current name in the middle, back on the trailing edge. |
-| Large title | Comet's own document heading, restyled at 27 pt and allowed to scroll away: the bar still says where you are. |
-| Dock | A floating glass capsule, inset from the edges and lifted above the home indicator, with a tinted lens on the selected item. Files, Search, Calendar, Library. |
-| Create | Its own floating button above the dock, because making something is what a phone is picked up for. It was the middle slot of the bar, which is an Android shape rather than an iOS one. |
-| Sheets | Menus and dialogs are inset cards that rise from the bottom edge with a grabber, not slabs welded to the screen. |
-| Drawer | Comes in from the left over a dim, with the app's own navigation rows. |
-| Status bar | Follows the theme: the page reports light or dark through the bridge, and the Swift side redraws the clock. |
-| Haptics | Every dock press, long press and edge swipe goes through the Taptic Engine — `plugin:haptics|impact` on the same bridge as everything else. |
-| Edge swipe | Dragging in from the left edge goes back, like every other iOS app. A web view cannot do this for itself. |
+| Bar | Transparent over the Matterhorn and glass once content scrolls under it. Back on the leading edge when there is somewhere to go, the current name, search on the trailing edge. |
+| Dock | A floating glass capsule, inset from the edges, above the home indicator, with a tinted lens on the selected tab: **Files, Search, Calendar, Library**. |
+| Create | Its own floating button above the dock — a phone's main verb does not belong in a tab slot. |
+| Library | A page sheet holding what the sidebar used to: the workspace switcher, then Browse (All files, Pinned, Favorites, Tree, Brain) and Tools (Calendar, Passwords, Manage tags, Settings), each with the count the app itself shows. |
+| Search | Comet's own search, opened full-screen from the app's search button: same query, same results, keyboard up. |
+| Rows | 68 pt tall, 16.5 pt titles, always-visible menu buttons — there is no hover on a phone. |
+| Sheets | Inset cards with a grabber rising from the bottom edge, for menus and dialogs. |
+| Status bar | Follows the theme, reported from the page through the bridge. |
+| Haptics | Every dock press, sheet row, long press and edge swipe goes through the Taptic Engine. |
+| Edge swipe | Dragging in from the left edge goes back, like every other iOS app. |
 
-The dock, the bar and the sheets are **shortcuts to the app's own controls**:
-pressing a dock item presses the real sidebar row, the real search field or the
-real upload button, so state, routing and permissions stay Comet's. A long press
-presses the row's own *More options* button and swallows the click that follows,
-so a long press never also opens the file.
+A page cannot do haptics, the status bar or an edge swipe for itself, so those
+three come from Swift (`Presence.swift`).
+
+Comet's sidebar is still in the DOM, still holds its state, and is never drawn:
+the sheet presses its rows. That is what keeps routing, counts and permissions
+Comet's own — the Library sheet is a lens on the app, not a second application.
+The workspace switcher is the app's own menu; while it is open the sidebar
+itself becomes the sheet, showing only that menu (`:has()`, iOS 15.4+).
 
 What is kept:
 
-- **The Matterhorn.** The workspace backdrop is the app's own artwork, full-bleed
-  behind the file list; the bar is transparent over it at the top of the page.
+- **The Matterhorn.** Comet's artwork, full-bleed behind the file list, with the
+  bar transparent over it at the top of the page.
 - **Every palette and both themes.** The layer only ever reads Comet's CSS
   variables (`--canvas`, `--accent`, `--text`, …), so whatever is picked in
-  Settings — any palette, light or dark — carries through, including the status
-  bar, without a second set of colours to maintain.
+  Settings carries through, including the status bar.
 - **Typography and shape.** Comet's own type scale and radii; the layer changes
   placement and weight, not the design language.
-- **Every feature.** Nothing is hidden or disabled; hiding the desktop top bar
-  only moves what it contained into the bar, the drawer and the sheets.
+- **Every feature.** Nothing is hidden or disabled. What the sidebar contained
+  is in the Library sheet, the create menu or the document toolbar.
 
 It is scoped to `html.comet-mobile`, a class only added by `mobile.js` inside the
 iOS shell, so the same bundle opened on a desktop is untouched. Above 760 px the
@@ -105,7 +105,7 @@ ipa: out/Comet-unsigned.ipa (5.6M)
 bundle: com.march.comet 0.1.0 (15), minimum iOS 16.0
 executable: Comet, architectures arm64
 page: index.html 3.5M, 200 PDF.js resources, shim.js 8.0K
-mobile layer: mobile.css 28K, mobile.js 24K
+mobile layer: mobile.css 32K, mobile.js 32K
 signing: code signature no, provisioning profile no
 assets: Assets.car 176K
 ```
@@ -197,7 +197,7 @@ Comet.ipa
     ├── www/                  Comet's web bundle (index.html + PDF.js assets)
     ├── shim.js               implements window.__TAURI_INTERNALS__
     ├── mobile.css            the phone layout, scoped to html.comet-mobile
-    ├── mobile.js             bar, dock, sheets, long press, edge swipe
+    ├── mobile.js             bar, dock, Library sheet, long press, edge swipe
     └── Comet                 Swift host
         ├── HTTPServer        loopback HTTP/1.1 on 127.0.0.1:47823
         ├── Site              serves www/, /__file (Range-aware), /__invoke
