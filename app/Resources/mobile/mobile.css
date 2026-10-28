@@ -86,7 +86,9 @@ html.comet-mobile .main-area {
 }
 
 html.comet-mobile .workspace-scroll {
-  padding: 0 0 4px;
+  /* The create button floats over the bottom-right corner, and a row's own
+     menu button lives there too. The scroll ends above it rather than under it. */
+  padding: 0 0 62px;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -709,11 +711,13 @@ html.comet-mobile .context-menu { -webkit-overflow-scrolling: touch; }
   html.comet-mobile .modal { width: min(100%, 640px); margin: 0 auto calc(20px + var(--m-safe-bottom)); }
   html.comet-mobile .modal-backdrop { place-items: center; padding: 24px; }
   html.comet-mobile .context-menu {
+    /* Centred with the box, not with a transform: the sheet animation animates
+       transform, and the two would fight for three hundred milliseconds. */
     right: auto !important;
     left: 50% !important;
     bottom: 24px !important;
     width: 420px !important;
-    transform: translateX(-50%);
+    margin-left: -210px;
   }
 }
 
