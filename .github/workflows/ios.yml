@@ -70,10 +70,7 @@ jobs:
               echo "::error::$line"
             done
             echo "::error::--- last lines of the build ---"
-            tail -20 .build.log | tr '
-' '|' | fold -w 900 | while IFS= read -r line; do
-              echo "::error::$line"
-            done
+            tail -20 .build.log | while IFS= read -r line; do echo "::error::$line"; done
           fi
 
       - name: Summarise
