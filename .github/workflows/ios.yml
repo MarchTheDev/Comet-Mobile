@@ -29,10 +29,11 @@ permissions:
 jobs:
   ipa:
     name: Unsigned IPA
-    # macos-14 is an Intel image that stays available; the macOS 15 arm64 fleet
-    # regularly leaves jobs stuck in the queue and then drops them. Either image
-    # produces the same arm64 iPhone build.
-    runs-on: macos-14
+    # Either image produces the same arm64 iPhone build. Both fleets have been
+    # seen leaving jobs in the queue with no runner ever assigned and then
+    # cancelling them after fifteen minutes; when that happens to one, the other
+    # is the retry.
+    runs-on: macos-15
     timeout-minutes: 45
 
     steps:
