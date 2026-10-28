@@ -56,19 +56,22 @@ jobs:
       - name: Build the unsigned IPA
         env:
           BUILD_NUMBER: ${{ github.run_number }}
-        run: scripts/build-ipa.sh --skip-prepare
+        run: |
+          set -o pipefail
+          scripts/build-ipa.sh --skip-prepare 2>&1 | tee .build.log
 
-      # Compiler errors are re-emitted as annotations so they are readable from
-      # `gh run view` as well as from the run page.
-      - name: Surface compiler errors
+      # The run's log is not always reachable from every network, so the
+      # interesting lines are re-emitted as annotations, which are.
+      - name: Surface build errors
         if: failure()
         run: |
-          if [ -f .xcodebuild.log ]; then
-            grep -E "(error|warning): " .xcodebuild.log | sort -u | head -40 | while IFS= read -r line; do
+          if [ -f .build.log ]; then
+            grep -E "(error|fatal error): " .build.log | sort -u | head -30 | while IFS= read -r line; do
               echo "::error::$line"
             done
-          elif [ -f .comet-build.log ]; then
-            tail -40 .comet-build.log | while IFS= read -r line; do
+            echo "::error::--- last lines of the build ---"
+            tail -20 .build.log | tr '
+' '|' | fold -w 900 | while IFS= read -r line; do
               echo "::error::$line"
             done
           fi

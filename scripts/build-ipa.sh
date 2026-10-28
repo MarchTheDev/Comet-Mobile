@@ -53,11 +53,25 @@ if ! command -v xcodegen >/dev/null; then
   fi
 fi
 
+log "Toolchain"
+xcodebuild -version
+xcodegen --version
+
 log "Generating CometMobile.xcodeproj"
+rm -rf CometMobile.xcodeproj
 xcodegen generate --spec project.yml
 
+# Fail with something readable if the project came out unreadable, rather than
+# letting xcodebuild report only that it could not open it.
+if [ ! -f CometMobile.xcodeproj/project.pbxproj ]; then
+  echo "error: xcodegen did not write project.pbxproj" >&2
+  exit 1
+fi
+head -c 400 CometMobile.xcodeproj/project.pbxproj
+echo
+xcodebuild -list -project CometMobile.xcodeproj
+
 log "Building Comet $VERSION ($BUILD_NUMBER) for iOS arm64"
-set -o pipefail
 xcodebuild \
   -project CometMobile.xcodeproj \
   -scheme Comet \
@@ -72,8 +86,7 @@ xcodebuild \
   DEVELOPMENT_TEAM="" \
   ONLY_ACTIVE_ARCH=NO \
   MARKETING_VERSION="$VERSION" \
-  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-  2>&1 | tee "$ROOT/.xcodebuild.log"
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
 APP="$ROOT/build/Build/Products/Release-iphoneos/Comet.app"
 if [ ! -d "$APP" ]; then
