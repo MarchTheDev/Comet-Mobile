@@ -29,7 +29,10 @@ concurrency:
 jobs:
   ipa:
     name: Unsigned IPA
-    runs-on: macos-15
+    # macos-14 is an Intel image that stays available; the macOS 15 arm64 fleet
+    # regularly leaves jobs stuck in the queue and then drops them. Either image
+    # produces the same arm64 iPhone build.
+    runs-on: macos-14
     timeout-minutes: 45
 
     steps:
