@@ -1,0 +1,78 @@
+name: iOS
+
+# Builds Comet for iPhone and iPad as an unsigned .ipa and leaves it as a
+# downloadable artifact. No Apple account, no certificates, no TestFlight: the
+# sideloading tool you use signs the bundle on your own device.
+#
+#   Actions -> iOS -> Run workflow            (uses the pinned Comet commit)
+#   ... and set "comet_ref" to build another Comet commit or branch.
+#
+# Every branch builds, so a change to the shell can be tried on a device before
+# it is merged.
+
+on:
+  workflow_dispatch:
+    inputs:
+      comet_ref:
+        description: "Comet commit, tag or branch to build (blank: the pinned commit)"
+        required: false
+        default: ""
+  push:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    name: Unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Fetch and build Comet
+        env:
+          COMET_REF: ${{ github.event.inputs.comet_ref }}
+        run: scripts/prepare.sh
+
+      - name: Check the Tauri bridge against the real @tauri-apps packages
+        run: node tools/test-shim.mjs
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build the unsigned IPA
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: scripts/build-ipa.sh --skip-prepare
+
+      - name: Summarise
+        if: success()
+        run: |
+          {
+            echo "### Comet for iOS"
+            echo ""
+            echo "- Comet: \`$(cat .comet-ref 2>/dev/null || echo unknown)\`"
+            echo "- Version: \`$(cat .comet-version 2>/dev/null || echo 0.1.0)\` (build ${{ github.run_number }})"
+            echo "- Size: $(du -h out/Comet-unsigned.ipa | cut -f1)"
+            echo ""
+            echo "Download \`Comet-unsigned-ipa\` below, then install it with Sideloadly,"
+            echo "AltStore/SideStore, or Xcode. It is unsigned on purpose: your tool"
+            echo "signs it with your own certificate."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Comet-unsigned-ipa
+          path: out/Comet-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

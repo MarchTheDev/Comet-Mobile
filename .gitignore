@@ -1,0 +1,21 @@
+# The Comet checkout this build pulls in, and everything generated from it.
+.comet/
+.comet-npm.log
+.comet-build.log
+.comet-version
+.comet-ref
+
+# Produced by scripts/prepare.sh from Comet's own build and icon set.
+app/Resources/www/
+app/Resources/Assets.xcassets/AppIcon.appiconset/*.png
+
+# Produced by scripts/build-ipa.sh.
+CometMobile.xcodeproj/
+build/
+out/
+DerivedData/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+# macOS
+.DS_Store
