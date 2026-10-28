@@ -243,7 +243,7 @@ await settle(10);
 
 check("the app mounts", Boolean(document.querySelector(".app-shell")));
 check("the desktop top bar is in the page before the shell runs", Boolean(document.querySelector(".app-topbar")));
-check("the shell has not run yet", !document.querySelector(".m-header"));
+check("the shell has not run yet", !document.querySelector(".m-bar"));
 
 // Long-press is wired on touchstart; jsdom has no touch, so this exercises the
 // install path and the chrome only.
@@ -252,21 +252,22 @@ await settle(6);
 
 const html = document.documentElement;
 check("html carries comet-mobile", html.classList.contains("comet-mobile"));
-check("a header is added", Boolean(document.querySelector(".m-header")));
-const tabs = [...document.querySelectorAll(".m-tab")];
-check("five tabs are added", tabs.length === 5, String(tabs.length));
-check("the tabs are Files, Search, New, Calendar, Library",
-  tabs.map((tab) => tab.dataset.tab).join(",") === "files,search,create,calendar,library",
+check("a header is added", Boolean(document.querySelector(".m-bar")));
+const tabs = [...document.querySelectorAll(".m-dock-item")];
+check("the dock has four items", tabs.length === 4, String(tabs.length));
+check("the dock is Files, Search, Calendar, Library",
+  tabs.map((tab) => tab.dataset.tab).join(",") === "files,search,calendar,library",
   tabs.map((tab) => tab.dataset.tab).join(","));
+check("creating is its own floating button", Boolean(document.querySelector(".m-create")));
 
-const header = document.querySelector(".m-header");
+const header = document.querySelector(".m-bar");
 const title = header?.querySelector("strong")?.textContent ?? "";
 check("the header names where you are", title.length > 0, title);
 
 // Re-running the script must not stack a second set of chrome.
 window.eval(readFileSync(mobilePath, "utf8"));
 await settle(3);
-check("installing twice changes nothing", document.querySelectorAll(".m-header").length === 1 && document.querySelectorAll(".m-tabs").length === 1);
+check("installing twice changes nothing", document.querySelectorAll(".m-bar").length === 1 && document.querySelectorAll(".m-dock").length === 1 && document.querySelectorAll(".m-create").length === 1);
 
 /* ------------------------------------------------------ opening a workspace */
 
@@ -294,9 +295,9 @@ function welcomeRow() {
 
 /* ------------------------------------------------------- driving the tabs */
 
-const filesTab = document.querySelector('.m-tab[data-tab="files"]');
-const calendarTab = document.querySelector('.m-tab[data-tab="calendar"]');
-const libraryTab = document.querySelector('.m-tab[data-tab="library"]');
+const filesTab = document.querySelector('.m-dock-item[data-tab="files"]');
+const calendarTab = document.querySelector('.m-dock-item[data-tab="calendar"]');
+const libraryTab = document.querySelector('.m-dock-item[data-tab="library"]');
 
 calendarTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 await settle(10);
@@ -323,6 +324,41 @@ libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 await settle(4);
 check("Library closes it again", document.querySelector(".sidebar")?.classList.contains("is-closed") === true);
 
+/* ---------------------------------------------- what makes it feel native */
+
+// Haptics travel through the bridge, so a press in the shell is a press the
+// Taptic Engine feels. Nothing visual depends on this, which is why it has to
+// be asserted rather than looked at.
+check("pressing a dock item asks the native side for a tap",
+  seen.includes("plugin:haptics|impact"), seen.filter((cmd) => cmd.includes("haptics")).join(",") || "never asked");
+check("the shell reports the theme for the status bar",
+  seen.includes("plugin:comet|status_bar"),
+  seen.filter((cmd) => cmd.includes("status_bar")).join(",") || "never asked");
+
+
+// The glass bar is a scrolled state, not a permanent slab: at the top of the
+// workspace there is no bar background at all.
+const rootElement = document.documentElement;
+const area = document.querySelector(".workspace-scroll");
+check("the bar starts transparent", !rootElement.classList.contains("m-scrolled"));
+if (area) {
+  area.scrollTop = 120;
+  area.dispatchEvent(new window.Event("scroll", { bubbles: false }));
+  await settle(3);
+}
+check("scrolling turns the bar to glass", rootElement.classList.contains("m-scrolled"));
+
+// Back is offered exactly when there is somewhere to go: a live-looking button
+// that is dead is worse than no button. The app's own history button is the
+// reference — if it is disabled and no document is open, there is no back.
+const appBackAnchor = document.querySelector('[aria-label="Go back"]');
+const shellBackAnchor = document.querySelector(".m-bar-back");
+const documentOpenNow = Boolean(document.querySelector(".document-heading h2"));
+const backShouldHide = Boolean(appBackAnchor?.disabled) && !documentOpenNow;
+check("back is offered exactly when there is somewhere to go",
+  shellBackAnchor?.hidden === backShouldHide,
+  `hidden=${shellBackAnchor?.hidden} appBackDisabled=${appBackAnchor?.disabled} document=${documentOpenNow}`);
+
 /* ------------------------------------------------------------ the anchors */
 
 const anchors = {
@@ -339,7 +375,7 @@ for (const [name, resolve] of Object.entries(anchors)) {
 
 /* --------------------------------------------------------------- the menu */
 
-document.querySelector('.m-tab[data-tab="create"]').dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+document.querySelector(".m-create").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 await settle(6);
 const createMenu = document.querySelector(".context-menu");
 check("New opens the app's own create menu", Boolean(createMenu));
@@ -386,10 +422,20 @@ check("the click that follows a long press does not open the file", !document.qu
 
 row?.querySelector(".workspace-entry-open").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 await settle(12);
-const headerTitle = document.querySelector(".m-header strong")?.textContent ?? "";
+const headerTitle = document.querySelector(".m-bar-title strong")?.textContent ?? "";
 check("opening a note puts its name in the header", headerTitle === "Welcome", headerTitle);
 check("the note itself rendered", Boolean(document.querySelector(".note-card")));
-check("the back button appeared", document.querySelector(".m-header-back")?.hidden === false);
+check("the document's own heading names the note at title size",
+  document.querySelector(".document-heading h2")?.textContent?.trim() === "Welcome",
+  document.querySelector(".document-heading h2")?.textContent ?? "none");
+check("the back button appeared", document.querySelector(".m-bar-back")?.hidden === false);
+
+// And it does something: the app's own history, walked from the shell.
+document.querySelector(".m-bar-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(10);
+check("back returns to the file list",
+  !document.querySelector(".note-card") && document.querySelectorAll(".workspace-entry").length === files.length,
+  `entries=${document.querySelectorAll(".workspace-entry").length}`);
 
 /* ---------------------------------------------------------------- the CSS */
 
@@ -397,10 +443,46 @@ const css = readFileSync(cssPath, "utf8");
 check("the stylesheet is scoped to the mobile class", !/(^|\n)\s*(html|body|\.app-shell)\s*\{/.test(css));
 check("the desktop top bar is hidden", /\.app-topbar\s*\{\s*display:\s*none/.test(css));
 check("every declaration block is closed", (css.match(/\{/g) ?? []).length === (css.match(/\}/g) ?? []).length);
-check("menus become sheets", /\.context-menu\s*\{[^}]*bottom:\s*0\s*!important/.test(css));
-check("dialogs become sheets", /\.modal-backdrop\s*\{[^}]*place-items:\s*end center/.test(css));
+check("menus become inset sheets",
+  /\.context-menu\s*\{[^}]*right:\s*8px\s*!important[^}]*border-radius:\s*26px/.test(css));
+check("dialogs become bottom sheets", /\.modal-backdrop\s*\{[^}]*place-items:\s*end center/.test(css));
 check("inputs avoid the iOS focus zoom", /font-size:\s*16px/.test(css));
-const layers = [".sidebar-scrim", ".sidebar", ".context-menu", ".modal-backdrop"].map((selector) => {
+
+// The black screen: the page has to paint its own background, or every frame
+// where Comet's shell does not cover the viewport shows the web view's own
+// black backing (which is what the workspace picker used to leave behind).
+check("the page paints its own background",
+  /html\.comet-mobile,\s*\n?html\.comet-mobile body,\s*\n?html\.comet-mobile #root \{[^}]*background:\s*var\(--canvas\)/.test(css));
+
+// A full-screen blurred layer is what makes WKWebView lose its backing store
+// after a native sheet is dismissed. The scrim and the backdrop must not blur.
+const veil = (selector) => {
+  const match = css.match(new RegExp(`html\\.comet-mobile ${selector.replace(".", "\\.")}\\s*\\{[^}]*\\}`));
+  return match ? match[0] : "";
+};
+check("the full-screen veils do not blur",
+  /backdrop-filter:\s*none/.test(veil(".sidebar-scrim")) && /backdrop-filter:\s*none/.test(veil(".modal-backdrop")),
+  `${veil(".sidebar-scrim").slice(0, 40)} / ${veil(".modal-backdrop").slice(0, 40)}`);
+
+// The glass is only worth having if it is actually glass, and only safe where
+// it is small.
+const dockRule = css.match(/html\.comet-mobile \.m-dock \{[^}]*\}/)?.[0] ?? "";
+check("the dock is a floating glass capsule",
+  /backdrop-filter:\s*saturate\([^)]*\)\s*blur\(\d+px\)/.test(dockRule) &&
+  /border-radius:\s*26px/.test(dockRule) &&
+  /position:\s*fixed/.test(dockRule),
+  dockRule.slice(0, 80));
+check("the glass has a fallback where it is not supported", /@supports not/.test(css));
+
+// The large title is Comet's own heading, restyled — not an element of ours
+// floating over the app where it could land on the hero or the toolbar.
+const headingRule = css.match(/html\.comet-mobile \.document-heading h2 \{[^}]*\}/)?.[0] ?? "";
+check("the document heading is a large title",
+  /font-size:\s*(2[4-9]|3\d)px/.test(headingRule) && /font-weight:\s*[78]00/.test(headingRule),
+  headingRule.slice(0, 80));
+check("no injected element is positioned over the content",
+  !/\.m-large-title/.test(css));
+const layers = [".sidebar-scrim", ".sidebar", ".modal-backdrop", ".context-menu"].map((selector) => {
   const match = css.match(new RegExp(`html\\.comet-mobile ${selector.replace(".", "\\.")} \\{ z-index: (\\d+)`));
   return match ? Number(match[1]) : NaN;
 });

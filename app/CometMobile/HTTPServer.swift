@@ -23,7 +23,7 @@ import Network
 final class HTTPServer {
     typealias Router = (HTTPRequest, @escaping (HTTPResponse) -> Void) -> Void
 
-    private let queue = DispatchQueue(label: "com.marco.comet.bridge", qos: .userInitiated, attributes: .concurrent)
+    private let queue = DispatchQueue(label: "com.march.comet.bridge", qos: .userInitiated, attributes: .concurrent)
     private let router: Router
     private var listener: NWListener?
     private var boundPort: UInt16 = 0

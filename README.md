@@ -7,9 +7,10 @@ build one.
 
 Comet itself is not modified. This repository is a shell that runs the real Comet
 interface, unchanged, on top of a small native iOS host, plus a mobile layer that
-reflows it for a phone. The layer is injected CSS and JavaScript
-(`app/Resources/mobile/`); it does not patch Comet's bundle, so updating the
-pinned commit does not create conflicts.
+gives it a phone's shape: a translucent bar, a floating glass dock, sheets, and
+Comet's content restyled for touch. The layer is injected CSS and JavaScript
+(`app/Resources/mobile/`), so updating the pinned Comet commit does not create
+conflicts.
 
 > **Status:** every build produces a real, installable IPA and checks its
 > contents. That proves it compiles and packages; it does not prove every screen
@@ -37,45 +38,61 @@ it and replaces only the native half.
 ## The mobile interface
 
 The desktop app is a sidebar beside a workspace, with a top bar of controls and
-menus that open on hover. On a phone that is a cropped desktop: the sidebar eats
-most of the width, the bar is unreachable at the top edge, and nothing responds
-to a long press. So the shell restyles the app rather than porting it.
+menus that open on hover. On a phone that is a cropped desktop. The shell
+therefore does not shrink it: it gives the app an iPhone's structure, and only
+the parts a web view cannot do for itself — haptics, the status bar, the edge
+swipe — come from Swift.
 
-| Desktop | On a phone |
+**The chrome is ours; the content is Comet's.**
+
+| | |
 | --- | --- |
-| Sidebar always visible | Drawer over the workspace, opened from the header or the Files tab, dismissed by the scrim or by picking something |
-| Top bar with path, view tabs and actions | Compact header: menu button, the current title, and a back arrow once a document is open |
-| Menus that appear on hover | Long press opens the same menu as a bottom sheet; menus and dialogs slide up from the bottom edge |
-| Document tabs and toolbars as a row | Scrollable row that keeps the current tab in view |
-| Cover and document cards in a grid | Full-bleed cover for the current workspace, single-column cards |
+| Bar | 44 pt, transparent over the Matterhorn, turning to glass the moment content scrolls under it. Menu on the leading edge, the current name in the middle, back on the trailing edge. |
+| Large title | Comet's own document heading, restyled at 27 pt and allowed to scroll away: the bar still says where you are. |
+| Dock | A floating glass capsule, inset from the edges and lifted above the home indicator, with a tinted lens on the selected item. Files, Search, Calendar, Library. |
+| Create | Its own floating button above the dock, because making something is what a phone is picked up for. It was the middle slot of the bar, which is an Android shape rather than an iOS one. |
+| Sheets | Menus and dialogs are inset cards that rise from the bottom edge with a grabber, not slabs welded to the screen. |
+| Drawer | Comes in from the left over a dim, with the app's own navigation rows. |
+| Status bar | Follows the theme: the page reports light or dark through the bridge, and the Swift side redraws the clock. |
+| Haptics | Every dock press, long press and edge swipe goes through the Taptic Engine — `plugin:haptics|impact` on the same bridge as everything else. |
+| Edge swipe | Dragging in from the left edge goes back, like every other iOS app. A web view cannot do this for itself. |
 
-A five-slot bar sits at the bottom edge — Files, Search, New, Calendar, Library —
-with New raised in the middle, because creating a note is the thing a phone is
-picked up for. The bar and the header are **shortcuts to the app's own
-controls**: pressing a tab presses the real sidebar row, the real search field or
-the real upload button, so state, routing and permissions stay Comet's. A long
-press presses the row's own *More options* button and swallows the click that
-follows it, so a long press never also opens the file.
+The dock, the bar and the sheets are **shortcuts to the app's own controls**:
+pressing a dock item presses the real sidebar row, the real search field or the
+real upload button, so state, routing and permissions stay Comet's. A long press
+presses the row's own *More options* button and swallows the click that follows,
+so a long press never also opens the file.
 
 What is kept:
 
-- **The Matterhorn.** The workspace backdrop is the app's own artwork, moved
-  behind the file list and dimmed rather than removed.
+- **The Matterhorn.** The workspace backdrop is the app's own artwork, full-bleed
+  behind the file list; the bar is transparent over it at the top of the page.
 - **Every palette and both themes.** The layer only ever reads Comet's CSS
   variables (`--canvas`, `--accent`, `--text`, …), so whatever is picked in
-  Settings — any palette, light or dark — carries through without a second set
-  of colours to maintain.
-- **Typography and shape.** Comet's own type scale, radii and shadows; the layer
-  changes placement, not the design language.
-- **Every feature.** Nothing is hidden or disabled; hiding the top bar only moves
-  what it contained into the header, the drawer and the sheets.
+  Settings — any palette, light or dark — carries through, including the status
+  bar, without a second set of colours to maintain.
+- **Typography and shape.** Comet's own type scale and radii; the layer changes
+  placement and weight, not the design language.
+- **Every feature.** Nothing is hidden or disabled; hiding the desktop top bar
+  only moves what it contained into the bar, the drawer and the sheets.
 
 It is scoped to `html.comet-mobile`, a class only added by `mobile.js` inside the
 iOS shell, so the same bundle opened on a desktop is untouched. Above 760 px the
 layout relaxes back towards the desktop arrangement for iPad.
 
-The layer's honesty about its own testing is below: CI proves the structure, not
-the appearance.
+### The black screen, and why the page paints its own background
+
+Comet's stylesheet paints `.app-shell` and leaves `html` and `body` transparent.
+In a browser that is invisible; in a web view it is not, because WKWebView's own
+backing surface is black. Any frame where Comet's shell does not cover the
+viewport — the inset change while a native sheet like the workspace picker is
+dismissed is exactly that — showed black. So the layer paints `--canvas` on
+`html`, `body` and `#root`, the worst possible frame is the app's own colour, and
+the shell nudges the layer to repaint when the page becomes visible again.
+
+For the same reason only *small* surfaces get `backdrop-filter`. A full-screen
+blurred layer is what makes WKWebView lose its backing store after a native sheet,
+and at that size a plain tint is indistinguishable.
 
 ## The IPA
 
@@ -85,10 +102,10 @@ also reports what it packaged:
 
 ```
 ipa: out/Comet-unsigned.ipa (5.6M)
-bundle: com.marco.comet 0.1.0 (11), minimum iOS 16.0
+bundle: com.march.comet 0.1.0 (15), minimum iOS 16.0
 executable: Comet, architectures arm64
 page: index.html 3.5M, 200 PDF.js resources, shim.js 8.0K
-mobile layer: mobile.css 24K, mobile.js 16K
+mobile layer: mobile.css 28K, mobile.js 24K
 signing: code signature no, provisioning profile no
 assets: Assets.car 176K
 ```
@@ -107,10 +124,12 @@ Notes:
 
 - A **free Apple ID** gives a 7-day install that has to be re-signed afterwards.
   A paid developer account gives a year.
-- Signing tools rewrite the bundle identifier (`com.marco.comet` by default, or
+- Signing tools rewrite the bundle identifier (`com.march.comet` by default, or
   set `BUNDLE_ID` when building), and each identifier gets separate storage.
   Changing it looks like a fresh install: settings, tags and the password vault
-  do not move across.
+  do not move across. That is why the default changed once, from `com.marco.comet`
+  to `com.march.comet`: an install of the old build is a different app, so reopen
+  your workspace in the new one.
 - Only the build needs a Mac; the IPA comes out of GitHub's macOS runners.
 
 ## What works
@@ -178,13 +197,14 @@ Comet.ipa
     ├── www/                  Comet's web bundle (index.html + PDF.js assets)
     ├── shim.js               implements window.__TAURI_INTERNALS__
     ├── mobile.css            the phone layout, scoped to html.comet-mobile
-    ├── mobile.js             header, bottom bar and long press over the app
+    ├── mobile.js             bar, dock, sheets, long press, edge swipe
     └── Comet                 Swift host
         ├── HTTPServer        loopback HTTP/1.1 on 127.0.0.1:47823
         ├── Site              serves www/, /__file (Range-aware), /__invoke
         ├── Bridge            the command table Comet calls
         ├── Workspace         file operations, path rules, staged imports
-        └── Pickers           document picker, share sheet, backups
+        ├── Pickers           document picker, share sheet, backups
+        └── Presence          haptics and the status bar
 ```
 
 A command travels: page → `invoke()` → `POST /__invoke` → `Bridge` → `Workspace`
@@ -213,6 +233,7 @@ port. A changing port would look like a fresh install every launch.
 
 ```
 app/CometMobile/        the Swift host
+app/CometMobile/Presence.swift  haptics and the status bar, the two things a page cannot do
 app/Resources/          Info.plist, the bridge shim, the mobile layer, generated www/ and icons
 app/Resources/mobile/   mobile.css and mobile.js: the phone interface over Comet's page
 project.yml             XcodeGen spec (the .xcodeproj is generated)
@@ -237,9 +258,13 @@ it in jsdom against the same bridge shim, then loads `mobile.js` on top and
 presses the tabs, the drawer, the New sheet and a long press on a real file. It
 asserts what the layer depends on still exists — that a tab reaches the app's own
 view, that a long press opens *that row's* menu and does not also open the file,
-that the header names the open document — plus the CSS invariants: the desktop
-top bar is hidden, the stylesheet is scoped, menus and dialogs are sheets, inputs
-are 16 px so iOS does not zoom, and the layers stack in the intended order.
+that the header names the open document, that back is offered exactly when there
+is somewhere to go and actually walks it, that scrolling turns the bar to glass,
+that a dock press asks the bridge for a tap — plus the CSS invariants: the
+stylesheet is scoped, the page paints its own background, the full-screen veils
+do not blur, the dock really is glass and has a fallback, menus and dialogs are
+inset sheets, inputs are 16 px so iOS does not zoom, and the layers stack in the
+intended order.
 
 jsdom has no layout engine, so this proves structure and behaviour, not
 appearance. The first run on a device is still the first time anyone sees it.

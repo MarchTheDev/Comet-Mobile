@@ -4,34 +4,69 @@
    Comet's own stylesheet is a desktop layout that shrinks: a permanent
    sidebar, a 60px top bar of breadcrumbs, hover-revealed actions, cards
    floating in wide margins. Nothing here changes what the app does; this file
-   gives it a phone's shape instead — one column, a thumb bar, sheets, and
-   touch-sized everything.
+   gives it a phone's shape instead.
 
-   Two rules keep it maintainable:
+   The chrome is built to read as an iOS app rather than as a web page: a
+   translucent bar that only appears once content scrolls under it, a floating
+   glass dock with the selected item in a tinted lens, a separate floating
+   create button, and sheets that are inset cards rather than slabs welded to
+   the screen edge. The content between them is Comet's, restyled for touch.
+
+   Three rules keep it maintainable:
 
    1. Every colour comes from Comet's own custom properties (--panel, --text,
       --accent, ...). That is why all fifteen palettes and the light/dark
       choice keep working without a single palette-specific override.
    2. Everything is scoped to html.comet-mobile, a class the shell adds before
       the first paint. Nothing leaks into the page if the layer is absent.
+   3. Only small, floating surfaces get backdrop-filter. A full-screen blurred
+      layer is what makes WKWebView lose its backing store and paint black
+      after a native sheet (the workspace picker) is dismissed, and it buys
+      nothing: a plain tint reads the same at that size.
 
-   Sizes are quoted in points: a 52px header is 52 CSS pixels, which WKWebView
+   Sizes are quoted in points: a 44px bar is 44 CSS pixels, which WKWebView
    maps to points at any device scale.
    ========================================================================== */
 
 html.comet-mobile {
-  --m-header: 52px;
-  --m-tabs: 58px;
+  --m-bar: 44px;
+  --m-dock: 62px;
+  --m-dock-inset: 12px;
   --m-gutter: 12px;
-  --m-radius: 16px;
+  --m-radius: 18px;
   --m-row: 56px;
+  --m-hairline: color-mix(in srgb, var(--border) 75%, transparent);
   /* Clears the fixed chrome above and below the scrolling content. */
+  --m-safe-top: env(safe-area-inset-top, 0px);
   --m-safe-bottom: env(safe-area-inset-bottom, 0px);
-  --m-chrome-top: calc(var(--m-header) + env(safe-area-inset-top, 0px));
-  --m-chrome-bottom: calc(var(--m-tabs) + var(--m-safe-bottom));
+  --m-chrome-top: calc(var(--m-bar) + var(--m-safe-top));
+  --m-chrome-bottom: calc(var(--m-dock) + var(--m-dock-inset) * 2 + var(--m-safe-bottom));
+  /* The glass recipe, stated once. A tint is layered under the blur so the
+     surface still reads as glass where the filter is not applied. */
+  --m-glass: color-mix(in srgb, var(--panel) 72%, transparent);
+  --m-glass-edge: color-mix(in srgb, var(--border-strong) 42%, transparent);
+  --m-glass-lift: inset 0 1px 0 color-mix(in srgb, #fff 38%, transparent);
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
+  color-scheme: light;
 }
+html.comet-mobile[data-theme="dark"] { color-scheme: dark; }
+
+/*
+ * Comet paints .app-shell and leaves html and body transparent, which is
+ * invisible on a desktop browser but not in a web view: WKWebView's own
+ * backing is black (#10161c in this shell), so any frame where the shell does
+ * not cover the viewport — a sheet transition, an inset change after the
+ * native document picker closes — is a black screen. Painting the app's canvas
+ * here makes the worst possible frame the app's own colour.
+ */
+html.comet-mobile,
+html.comet-mobile body,
+html.comet-mobile #root {
+  background: var(--canvas);
+  min-height: 100%;
+}
+html.comet-mobile body { overscroll-behavior: none; }
 
 /* Comet's desktop bars and the sidebar's resize handle have no job here. */
 html.comet-mobile .app-topbar { display: none; }
@@ -58,25 +93,38 @@ html.comet-mobile .workspace-scroll {
 }
 html.comet-mobile .workspace-scroll::-webkit-scrollbar { display: none; }
 
-/* ------------------------------------------------------------------ header */
+/* ------------------------------------------------------------------- bar */
 
-html.comet-mobile .m-header {
+/*
+ * The bar is transparent over the top of the page, so the Matterhorn shows
+ * through it, and turns to glass the moment content scrolls under it. That is
+ * the iOS behaviour, and it is also why the artwork still feels like the top
+ * of the app rather than something behind a banner.
+ */
+html.comet-mobile .m-bar {
   position: fixed;
   z-index: 30;
   inset: 0 0 auto 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   height: var(--m-chrome-top);
-  padding: env(safe-area-inset-top, 0px) 8px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
-  backdrop-filter: saturate(180%) blur(18px);
+  padding: var(--m-safe-top) 8px 0;
   color: var(--text);
+  border-bottom: 1px solid transparent;
+  /* Not fully transparent: the top of the workspace is the Matterhorn, and a
+     title has to be readable over sky as well as over rock. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--canvas) 72%, transparent), transparent);
+  transition: background .22s ease, border-color .22s ease;
+}
+html.comet-mobile.m-scrolled .m-bar {
+  border-bottom-color: var(--m-hairline);
+  background: var(--m-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
 }
 
-html.comet-mobile .m-header-button {
+html.comet-mobile .m-bar-button {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
@@ -85,17 +133,19 @@ html.comet-mobile .m-header-button {
   padding: 0;
   color: var(--text-secondary);
   border: 0;
-  border-radius: 12px;
+  border-radius: 50%;
   background: transparent;
-  transition: background .15s ease, color .15s ease;
+  transition: background .16s ease, color .16s ease, transform .16s ease;
 }
-html.comet-mobile .m-header-button:active {
+html.comet-mobile .m-bar-button:active {
   color: var(--text);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  transform: scale(.94);
 }
-html.comet-mobile .m-header-button svg { width: 21px; height: 21px; }
+html.comet-mobile .m-bar-button svg { width: 21px; height: 21px; }
+html.comet-mobile .m-bar-back[hidden] { display: none; }
 
-html.comet-mobile .m-header-title {
+html.comet-mobile .m-bar-title {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -103,107 +153,135 @@ html.comet-mobile .m-header-title {
   min-width: 0;
   padding: 0 2px;
 }
-html.comet-mobile .m-header-title strong {
+html.comet-mobile .m-bar-title strong {
   overflow: hidden;
   color: var(--text);
   font: inherit;
-  font-size: 15px;
-  font-weight: 750;
-  letter-spacing: -.01em;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html.comet-mobile .m-bar-title small {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-html.comet-mobile .m-header-title small {
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
-/* ---------------------------------------------------------------- thumb bar */
+/* ------------------------------------------------------------------- dock */
 
-html.comet-mobile .m-tabs {
+/*
+ * A floating capsule, inset from the edges and lifted above the home
+ * indicator: glass, a hairline edge, a specular line along the top. The
+ * selected item gets a tinted lens instead of a colour change, which is how
+ * a tab bar reads as "this one".
+ */
+html.comet-mobile .m-dock {
   position: fixed;
   z-index: 30;
-  inset: auto 0 0 0;
+  right: var(--m-dock-inset);
+  bottom: calc(var(--m-dock-inset) + var(--m-safe-bottom));
+  left: var(--m-dock-inset);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  align-items: end;
-  height: var(--m-chrome-bottom);
-  padding: 0 2px var(--m-safe-bottom);
-  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  background: color-mix(in srgb, var(--panel) 90%, transparent);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
-  backdrop-filter: saturate(180%) blur(18px);
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  align-items: stretch;
+  height: var(--m-dock);
+  padding: 5px;
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 26px;
+  background: var(--m-glass);
+  box-shadow: 0 12px 34px -12px #00000059, var(--m-glass-lift);
+  -webkit-backdrop-filter: saturate(190%) blur(26px);
+  backdrop-filter: saturate(190%) blur(26px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html.comet-mobile .m-dock,
+  html.comet-mobile.m-scrolled .m-bar { background: color-mix(in srgb, var(--panel) 96%, transparent); }
 }
 
-html.comet-mobile .m-tab {
+html.comet-mobile .m-dock-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  height: var(--m-tabs);
+  gap: 2px;
   padding: 0;
   color: var(--text-muted);
   border: 0;
+  border-radius: 21px;
   background: transparent;
   font: inherit;
-  transition: color .16s ease;
+  transition: color .16s ease, background .16s ease, transform .16s ease;
 }
-html.comet-mobile .m-tab svg { width: 22px; height: 22px; }
-html.comet-mobile .m-tab span {
+html.comet-mobile .m-dock-item svg { width: 23px; height: 23px; stroke-width: 1.8; }
+html.comet-mobile .m-dock-item span {
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .01em;
+  font-weight: 650;
+  letter-spacing: .005em;
+  line-height: 1;
 }
-html.comet-mobile .m-tab[aria-current="page"] { color: var(--accent); }
-html.comet-mobile .m-tab:active { color: var(--text); }
-html.comet-mobile .m-tab[aria-current="page"] svg { transform: translateY(-1px); }
+html.comet-mobile .m-dock-item:active { transform: scale(.95); }
+html.comet-mobile .m-dock-item[aria-current="page"],
+html.comet-mobile .m-dock-item[aria-expanded="true"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
 
-/* The one raised button: creating something is what a phone is for. */
-html.comet-mobile .m-tab.m-tab-new {
-  justify-content: flex-end;
-  padding-bottom: 5px;
-}
-html.comet-mobile .m-tab.m-tab-new .m-tab-fab {
+/* The one action a phone is picked up for, kept out of the bar so the bar
+   stays four even slots. */
+html.comet-mobile .m-create {
+  position: fixed;
+  z-index: 31;
+  right: calc(var(--m-dock-inset) + 4px);
+  bottom: calc(var(--m-dock-inset) * 2 + var(--m-dock) + var(--m-safe-bottom));
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
-  margin-top: -20px;
-  color: var(--canvas);
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 45%, transparent);
-  transition: transform .16s ease;
+  background: color-mix(in srgb, var(--accent) 88%, var(--canvas));
+  box-shadow: 0 14px 30px -10px color-mix(in srgb, var(--accent) 60%, transparent), var(--m-glass-lift);
+  transition: transform .16s ease, filter .16s ease;
 }
-html.comet-mobile .m-tab.m-tab-new .m-tab-fab svg { width: 24px; height: 24px; }
-html.comet-mobile .m-tab.m-tab-new:active .m-tab-fab { transform: scale(.93); }
-html.comet-mobile .m-tab.m-tab-new span { display: none; }
+html.comet-mobile .m-create svg { width: 26px; height: 26px; stroke-width: 2.1; }
+html.comet-mobile .m-create:active { transform: scale(.92); filter: brightness(1.06); }
 
-/* ------------------------------------------------------------------ drawer */
+/* ----------------------------------------------------------------- drawer */
 
 html.comet-mobile .sidebar {
-  width: min(330px, 86vw);
-  padding: 0 14px env(safe-area-inset-bottom, 0px);
-  border-right: 1px solid var(--border);
+  width: min(330px, 88vw);
+  padding: 6px 14px var(--m-safe-bottom);
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 0 26px 26px 0;
   background: var(--panel);
-  box-shadow: 24px 0 60px -30px #000a;
+  box-shadow: 30px 0 70px -34px #000000a6;
+  transition: transform .3s cubic-bezier(.32, .72, 0, 1), opacity .24s ease;
+}
+html.comet-mobile .sidebar.is-closed {
+  transform: translateX(-102%);
+  opacity: .6;
 }
 html.comet-mobile .sidebar-brand {
-  min-height: 56px;
-  padding-top: env(safe-area-inset-top, 0px);
+  min-height: 52px;
+  padding-top: var(--m-safe-top);
 }
 html.comet-mobile .brand-name { font-size: 17px; }
 html.comet-mobile .sidebar-scrim {
-  background: #00000047;
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
+  /* No backdrop-filter: see the note at the top of this file. */
+  background: #0000003d;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 html.comet-mobile .workspace-picker { min-height: 52px; }
@@ -211,19 +289,22 @@ html.comet-mobile .primary-nav { gap: 1px; }
 html.comet-mobile .nav-item {
   min-height: 46px;
   padding: 0 10px;
-  border-radius: 11px;
+  border-radius: 12px;
 }
 html.comet-mobile .nav-item svg { width: 19px; height: 19px; }
 html.comet-mobile .nav-item span { font-size: 14px; }
+html.comet-mobile .nav-item.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
 html.comet-mobile .sidebar-search {
   min-height: 44px;
   margin: 4px 0 10px;
-  border-radius: 11px;
+  border-radius: 12px;
 }
 html.comet-mobile .sidebar-search kbd { display: none; }
 html.comet-mobile .sidebar-section-heading { margin-top: 6px; }
 html.comet-mobile .section-add { width: 38px; height: 38px; }
-html.comet-mobile .tree-item { min-height: 44px; border-radius: 9px; }
+html.comet-mobile .tree-item { min-height: 44px; border-radius: 10px; }
 html.comet-mobile .tree-name { font-size: 13.5px; }
 html.comet-mobile .sidebar-footer { padding-bottom: 12px; }
 html.comet-mobile .vault-dropdown { max-height: min(60vh, 420px); overflow-y: auto; }
@@ -298,10 +379,10 @@ html.comet-mobile .layout-toggle button { width: 40px; height: 34px; }
 html.comet-mobile .file-list { gap: 2px; }
 html.comet-mobile .workspace-entry {
   min-height: var(--m-row);
-  border-radius: 12px;
+  border-radius: 13px;
 }
 html.comet-mobile .workspace-entry-open { min-height: var(--m-row); padding: 6px 4px; gap: 12px; }
-html.comet-mobile .workspace-entry-copy strong { font-size: 14.5px; }
+html.comet-mobile .workspace-entry-copy strong { font-size: 15px; font-weight: 650; }
 html.comet-mobile .workspace-entry-copy small { font-size: 11px; }
 html.comet-mobile .workspace-entry-icon { width: 38px; height: 38px; }
 /* Always visible: on a phone there is no hover, so a hidden menu is a lost menu. */
@@ -333,35 +414,64 @@ html.comet-mobile .file-gallery .workspace-entry-icon { width: 44px; height: 44p
 html.comet-mobile .note-card,
 html.comet-mobile .media-card { padding: 0; overflow: hidden; }
 
+/*
+ * The document toolbar: one row of 40pt targets, no heading (the bar above
+ * says the name), a hairline that only exists once something scrolls under it.
+ */
 html.comet-mobile .document-header {
+  /* Not sticky: the title scrolls away like a large title should, and the bar
+     above already carries the name once it has gone. */
   min-height: 0;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 14px 6px;
+  border-bottom: 1px solid var(--m-hairline);
+  background: var(--panel);
 }
-/* The name is in the header above; repeating it here wastes the best space
-   on the screen. */
-html.comet-mobile .document-heading { display: none; }
+html.comet-mobile .document-heading { display: block; }
+html.comet-mobile .document-heading-copy > span { display: none; }
+html.comet-mobile .document-heading h2 {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -.045em;
+  line-height: 1.15;
+}
+html.comet-mobile .document-heading .rename-title { font: inherit; letter-spacing: inherit; }
 html.comet-mobile .document-actions {
   flex: 1;
-  gap: 4px;
+  gap: 2px;
   overflow-x: auto;
   scrollbar-width: none;
 }
 html.comet-mobile .document-actions::-webkit-scrollbar { display: none; }
 html.comet-mobile .document-actions .icon-button,
-html.comet-mobile .document-actions .doc-action { width: 40px; height: 40px; }
+html.comet-mobile .document-actions .doc-action { width: 40px; height: 40px; border-radius: 11px; }
 html.comet-mobile .save-indicator { margin-left: auto; padding-right: 4px; white-space: nowrap; }
 
+/* A segmented control, because that is what these are. */
 html.comet-mobile .view-tabs {
   display: flex;
   width: calc(100% - 24px);
   margin: 10px 12px 0;
   padding: 3px;
   border-radius: 11px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
 }
-html.comet-mobile .view-tabs button { flex: 1; height: 34px; font-size: 12px; border-radius: 8px; }
+html.comet-mobile .view-tabs button {
+  flex: 1;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 650;
+  transition: background .16s ease, box-shadow .16s ease;
+}
+html.comet-mobile .view-tabs button[aria-selected="true"],
+html.comet-mobile .view-tabs button.active {
+  background: var(--panel-raised);
+  box-shadow: 0 1px 3px #0000001f;
+}
 
 html.comet-mobile .format-toolbar {
   position: sticky;
@@ -369,13 +479,12 @@ html.comet-mobile .format-toolbar {
   z-index: 3;
   min-height: 48px;
   padding: 4px 8px;
-  background: color-mix(in srgb, var(--panel) 96%, transparent);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: var(--panel);
+  border-bottom: 1px solid var(--m-hairline);
   scrollbar-width: none;
 }
 html.comet-mobile .format-toolbar::-webkit-scrollbar { display: none; }
-html.comet-mobile .format-button { flex-basis: 38px; height: 38px; border-radius: 9px; }
+html.comet-mobile .format-button { flex-basis: 38px; height: 38px; border-radius: 10px; }
 
 html.comet-mobile .document-body { padding: 18px 16px 44px; }
 html.comet-mobile .comet-editor-prose {
@@ -396,48 +505,61 @@ html.comet-mobile .calendar-day-dot { display: block; }
 
 /* ------------------------------------------------------------- settings view */
 
-html.comet-mobile .settings-page { padding: 16px 14px 26px; }
-html.comet-mobile .setting-row { min-height: 54px; }
-html.comet-mobile .setting-copy strong { font-size: 14px; }
+/* Grouped inset list, the way iOS settings look: one card, hairline between
+   rows, the section heading outside and small. */
+html.comet-mobile .settings-page { padding: 8px 0 26px; }
+html.comet-mobile .settings-section { padding: 0 14px; }
+html.comet-mobile .settings-section + .settings-section { margin-top: 24px; }
+html.comet-mobile .setting-row {
+  min-height: 54px;
+  padding: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+html.comet-mobile .setting-row:last-child { border-bottom: 0; }
+html.comet-mobile .setting-copy strong { font-size: 14.5px; font-weight: 600; }
 html.comet-mobile .setting-copy small { font-size: 11.5px; line-height: 1.45; }
 html.comet-mobile .settings-nav-arrow { display: none; }
-html.comet-mobile .settings-section + .settings-section { margin-top: 22px; }
 
 /* ------------------------------------------------------------------ sheets */
 
-/* Dialogs were centred boxes on a 1280px window. On a phone they come up from
-   the bottom, sized for a thumb, and stop short of the home indicator. */
+/*
+ * iOS sheets are inset cards that float above the bottom edge, not slabs
+ * welded to it. Same items, same order, 26pt corners, a grabber, and a dim
+ * without a blur (a full-screen blurred layer is the paint bug described at
+ * the top of this file).
+ */
 html.comet-mobile .modal-backdrop {
   padding: 0;
   place-items: end center;
-  background: #0a141b66;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  background: #0a141b52;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 html.comet-mobile .modal {
-  width: 100%;
+  width: auto;
   max-width: none;
-  max-height: 92vh;
-  padding: 10px 18px calc(18px + var(--m-safe-bottom));
-  border: 0;
-  border-radius: 22px 22px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  box-shadow: 0 -20px 60px -20px #0008;
+  max-height: 86vh;
+  margin: 0 8px calc(8px + var(--m-safe-bottom));
+  padding: 8px 18px 16px;
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 26px;
+  box-shadow: 0 -24px 70px -24px #00000073, var(--m-glass-lift);
+  animation: comet-sheet-in .3s cubic-bezier(.32, .72, 0, 1);
 }
 html.comet-mobile .modal::before {
   content: "";
   display: block;
-  width: 38px;
-  height: 4px;
-  margin: 4px auto 12px;
+  width: 36px;
+  height: 5px;
+  margin: 2px auto 10px;
   border-radius: 99px;
-  background: var(--border-strong);
+  background: color-mix(in srgb, var(--text) 18%, transparent);
 }
-html.comet-mobile .modal-icon { width: 42px; height: 42px; border-radius: 13px; }
-html.comet-mobile .modal h2 { margin: 12px 0 6px; font-size: 20px; }
+html.comet-mobile .modal-icon { width: 44px; height: 44px; border-radius: 14px; }
+html.comet-mobile .modal h2 { margin: 12px 0 6px; font-size: 20px; letter-spacing: -.03em; }
 html.comet-mobile .modal p { margin-bottom: 16px; font-size: 13.5px; line-height: 1.6; }
 html.comet-mobile .modal-close {
-  top: 16px;
+  top: 14px;
   right: 12px;
   width: 40px;
   height: 40px;
@@ -446,75 +568,78 @@ html.comet-mobile .modal-actions {
   position: sticky;
   bottom: 0;
   gap: 8px;
-  margin: 18px -18px calc(-18px - var(--m-safe-bottom));
+  margin: 18px -18px -16px;
   padding: 12px 18px calc(14px + var(--m-safe-bottom));
-  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  background: color-mix(in srgb, var(--panel) 96%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--m-hairline);
+  background: var(--panel);
 }
 html.comet-mobile .modal-actions .primary-button,
 html.comet-mobile .modal-actions .secondary-button,
 html.comet-mobile .modal-actions .danger-button {
-  min-height: 44px;
+  min-height: 46px;
   padding: 0 18px;
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: 13px;
+  font-size: 15px;
+  font-weight: 650;
 }
 html.comet-mobile .modal-actions .text-button { font-size: 13px; }
 
 /* Menus open at the pointer on a desktop. There is no pointer here, so every
-   menu becomes a sheet: the same items, reachable by thumb, never off-screen.
-   The inline left/top the app writes is what has to be overridden. */
+   menu becomes the same inset sheet. The inline left/top the app writes is
+   what has to be overridden. */
 html.comet-mobile .context-menu {
   position: fixed !important;
-  z-index: 36;
+  z-index: 46;
   top: auto !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  left: 0 !important;
+  right: 8px !important;
+  bottom: calc(8px + var(--m-safe-bottom)) !important;
+  left: 8px !important;
   width: auto !important;
   max-height: 72vh;
   overflow-y: auto;
-  padding: 10px 10px calc(12px + var(--m-safe-bottom));
-  border: 0;
-  border-radius: 22px 22px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  box-shadow: 0 -18px 50px -18px #0009;
-  animation: comet-sheet-in .2s cubic-bezier(.2, .8, .2, 1);
+  padding: 8px 10px 10px;
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 26px;
+  background: var(--panel-raised);
+  box-shadow: 0 -24px 70px -24px #00000080, var(--m-glass-lift);
+  animation: comet-sheet-in .3s cubic-bezier(.32, .72, 0, 1);
   overscroll-behavior: contain;
 }
 html.comet-mobile .context-menu::before {
   content: "";
   display: block;
-  width: 38px;
-  height: 4px;
-  margin: 2px auto 8px;
+  width: 36px;
+  height: 5px;
+  margin: 2px auto 6px;
   border-radius: 99px;
-  background: var(--border-strong);
+  background: color-mix(in srgb, var(--text) 18%, transparent);
 }
 html.comet-mobile .context-menu > button {
   height: 50px;
   padding: 0 12px;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 650;
+  border-radius: 14px;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+html.comet-mobile .context-menu > button:active {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 html.comet-mobile .context-menu > button svg { width: 19px; height: 19px; }
 html.comet-mobile .context-heading { padding: 8px 12px 4px; font-size: 11px; }
 html.comet-mobile .context-divider { margin: 6px 8px; }
 
 @keyframes comet-sheet-in {
-  from { transform: translateY(14px); opacity: .6; }
+  from { transform: translateY(22px); opacity: .55; }
   to { transform: translateY(0); opacity: 1; }
 }
 
-/* Layer order, stated once: content < header and bar (30) < drawer (40/41)
-   < menus (42) < dialogs (44) < the app's restore overlay (50). */
+/* Layer order, stated once: content < bar and dock (30/31)
+   < drawer (40/41) < sheets (44/46) < the app's restore overlay (50). Sheets
+   sit above the dock, so a menu is never half-covered by the bar. */
 html.comet-mobile .sidebar-scrim { z-index: 40; }
 html.comet-mobile .sidebar { z-index: 41; }
-html.comet-mobile .context-menu { z-index: 42; }
 html.comet-mobile .modal-backdrop { z-index: 44; }
+html.comet-mobile .context-menu { z-index: 46; }
 
 /* The first-run and no-workspace screens: one clear action. */
 html.comet-mobile .workspace-panel .primary-button,
@@ -528,8 +653,8 @@ html.comet-mobile .restoring-overlay { font-size: 14px; }
 html.comet-mobile .workspace-entry,
 html.comet-mobile .tree-item,
 html.comet-mobile .nav-item,
-html.comet-mobile .m-tab,
-html.comet-mobile .m-header,
+html.comet-mobile .m-dock-item,
+html.comet-mobile .m-bar,
 html.comet-mobile .view-tabs,
 html.comet-mobile .layout-toggle,
 html.comet-mobile .format-toolbar {
@@ -538,7 +663,7 @@ html.comet-mobile .format-toolbar {
   -webkit-touch-callout: none;
 }
 html.comet-mobile button,
-html.comet-mobile .m-tab,
+html.comet-mobile .m-dock-item,
 html.comet-mobile .nav-item { touch-action: manipulation; }
 html.comet-mobile * { -webkit-tap-highlight-color: transparent; }
 
@@ -563,28 +688,40 @@ html.comet-mobile .context-menu { -webkit-overflow-scrolling: touch; }
 @media (min-width: 760px) {
   html.comet-mobile {
     --m-gutter: 18px;
-    --m-tabs: 64px;
+    --m-dock: 66px;
+    --m-dock-inset: 20px;
   }
-  html.comet-mobile .m-tab span { font-size: 11px; }
+  html.comet-mobile .m-dock { max-width: 560px; margin: 0 auto; }
+  html.comet-mobile .m-create {
+    right: 50%;
+    bottom: calc(var(--m-dock-inset) * 2 + var(--m-dock) + var(--m-safe-bottom));
+    transform: translateX(280px);
+  }
+  html.comet-mobile .m-create:active { transform: translateX(280px) scale(.92); }
+  html.comet-mobile .m-dock-item span { font-size: 11px; }
+  html.comet-mobile .document-heading h2 { font-size: 30px; }
   html.comet-mobile .file-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   html.comet-mobile .file-gallery .workspace-entry-open { min-height: 124px; }
   html.comet-mobile .workspace-entry-copy strong { font-size: 15px; }
   html.comet-mobile .document-body { padding: 26px 34px 56px; }
   html.comet-mobile .comet-editor-prose { font-size: 17.5px; }
   html.comet-mobile .cover-card { height: clamp(190px, 22vh, 260px); }
-  html.comet-mobile .modal { max-width: 620px; border-radius: 22px; margin: 0 auto; }
+  html.comet-mobile .modal { width: min(100%, 640px); margin: 0 auto calc(20px + var(--m-safe-bottom)); }
   html.comet-mobile .modal-backdrop { place-items: center; padding: 24px; }
   html.comet-mobile .context-menu {
     right: auto !important;
     left: 50% !important;
     bottom: 24px !important;
-    width: 380px !important;
+    width: 420px !important;
     transform: translateX(-50%);
-    border-radius: 20px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.comet-mobile .context-menu { animation: none; }
-  html.comet-mobile .m-tab.m-tab-new .m-tab-fab:active { transform: none; }
+  html.comet-mobile .context-menu,
+  html.comet-mobile .modal { animation: none; }
+  html.comet-mobile .sidebar,
+  html.comet-mobile .m-bar,
+  html.comet-mobile .m-dock-item,
+  html.comet-mobile .m-create { transition: none; }
 }

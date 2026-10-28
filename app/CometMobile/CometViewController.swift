@@ -40,6 +40,13 @@ final class CometViewController: UIViewController, WKNavigationDelegate, WKUIDel
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.scrollView.contentInsetAdjustmentBehavior = .never
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(statusBarStyleChanged),
+            name: .cometStatusBarStyleChanged,
+            object: nil
+        )
+
         webView.isOpaque = false
         webView.backgroundColor = CometTheme.background
         webView.scrollView.backgroundColor = CometTheme.background
@@ -66,7 +73,12 @@ final class CometViewController: UIViewController, WKNavigationDelegate, WKUIDel
         startServer(attempt: 0)
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    /// The page reports its theme through `plugin:comet|status_bar`; this is
+    /// only the reader. Before the page says anything the dark theme's light
+    /// clock is the safer guess, because that is Comet's default.
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        Appearance.prefersLightStatusBar ? .lightContent : .darkContent
+    }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
@@ -148,6 +160,10 @@ final class CometViewController: UIViewController, WKNavigationDelegate, WKUIDel
           } catch (error) { /* a broken stylesheet must not stop the app */ }
         })();
         """
+    }
+
+    @objc private func statusBarStyleChanged() {
+        setNeedsStatusBarAppearanceUpdate()
     }
 
     // MARK: - Launch overlay

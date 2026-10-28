@@ -40,7 +40,7 @@ VERSION="$(cat "$ROOT/.comet-version" 2>/dev/null || echo 0.1.0)"
 BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%Y%m%d%H%M)}"
 # Sideloading tools derive their own identifier, but two apps signed under the
 # same one cannot both be installed, so the build allows choosing it.
-BUNDLE_ID="${BUNDLE_ID:-com.marco.comet}"
+BUNDLE_ID="${BUNDLE_ID:-com.march.comet}"
 
 if ! command -v xcodebuild >/dev/null; then
   echo "error: xcodebuild is missing. iOS apps can only be built on macOS with Xcode." >&2

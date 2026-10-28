@@ -157,6 +157,22 @@ final class Bridge {
             case "plugin:app|name":
                 complete(.value("Comet"))
 
+            // MARK: The shell's own two hooks
+
+            // The mobile layer taps through the Taptic Engine on every dock
+            // press, long press and edge swipe. A missing style is still a tap.
+            case "plugin:haptics|impact":
+                Haptics.play((try? args.string("style")) ?? "light")
+                complete(.value(nil))
+
+            // The status bar has to follow the theme; the page knows the theme
+            // and this side knows the status bar.
+            case "plugin:comet|status_bar":
+                // A dark theme wants a light clock, so the page's flag reads
+                // the same way round as the status bar's preference.
+                Appearance.setStatusBarLight(args.boolean("dark"))
+                complete(.value(nil))
+
             // MARK: Workspace
 
             case "list_vault":
