@@ -57,6 +57,7 @@ log "Generating CometMobile.xcodeproj"
 xcodegen generate --spec project.yml
 
 log "Building Comet $VERSION ($BUILD_NUMBER) for iOS arm64"
+set -o pipefail
 xcodebuild \
   -project CometMobile.xcodeproj \
   -scheme Comet \
@@ -71,7 +72,8 @@ xcodebuild \
   DEVELOPMENT_TEAM="" \
   ONLY_ACTIVE_ARCH=NO \
   MARKETING_VERSION="$VERSION" \
-  CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+  2>&1 | tee "$ROOT/.xcodebuild.log"
 
 APP="$ROOT/build/Build/Products/Release-iphoneos/Comet.app"
 if [ ! -d "$APP" ]; then

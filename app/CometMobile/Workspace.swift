@@ -305,9 +305,11 @@ final class Workspace {
     func move(vault: String, path: String, folder: String) throws -> String {
         let source = try checkedEntry(vault: vault, path: path)
         let root = Workspace.canonical(vault)
-        let destinationFolder = Workspace.normalize(folder) == Workspace.normalize(vault)
-            ? vault
-            : try checkedEntry(vault: vault, path: folder)
+        // Swift refuses `try` to the right of ?:, and this reads better anyway.
+        var destinationFolder = vault
+        if Workspace.normalize(folder) != Workspace.normalize(vault) {
+            destinationFolder = try checkedEntry(vault: vault, path: folder)
+        }
         let resolvedFolder = Workspace.canonical(destinationFolder)
         var folderIsDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: resolvedFolder, isDirectory: &folderIsDirectory),
@@ -360,12 +362,15 @@ final class Workspace {
 
     // MARK: - File helpers
 
+    /// 516 is NSFileWriteFileExistsError: the destination appeared between the
+    /// check and the move.
+    private static let fileExistsErrorCode = 516
+
     static func moveWithoutReplacing(from source: String, to destination: String) throws {
         do {
             try FileManager.default.moveItem(atPath: source, toPath: destination)
         } catch {
-            let code = (error as NSError).code
-            if code == NSFileWriteFileExistsError {
+            if (error as NSError).code == fileExistsErrorCode {
                 throw CometError("An item with that name already exists.")
             }
             throw CometError(error.localizedDescription)

@@ -2,6 +2,7 @@
 .comet/
 .comet-npm.log
 .comet-build.log
+.xcodebuild.log
 .comet-version
 .comet-ref
 

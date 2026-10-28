@@ -58,6 +58,21 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: scripts/build-ipa.sh --skip-prepare
 
+      # Compiler errors are re-emitted as annotations so they are readable from
+      # `gh run view` as well as from the run page.
+      - name: Surface compiler errors
+        if: failure()
+        run: |
+          if [ -f .xcodebuild.log ]; then
+            grep -E "(error|warning): " .xcodebuild.log | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+          elif [ -f .comet-build.log ]; then
+            tail -40 .comet-build.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+          fi
+
       - name: Summarise
         if: success()
         run: |
