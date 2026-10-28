@@ -73,6 +73,13 @@ jobs:
             tail -20 .build.log | while IFS= read -r line; do echo "::error::$line"; done
           fi
 
+      - name: Check what ended up in the IPA
+        run: |
+          chmod +x scripts/verify-ipa.sh
+          scripts/verify-ipa.sh out/Comet-unsigned.ipa | while IFS= read -r line; do
+            echo "::notice::$line"
+          done
+
       - name: Summarise
         if: success()
         run: |
@@ -83,9 +90,10 @@ jobs:
             echo "- Version: \`$(cat .comet-version 2>/dev/null || echo 0.1.0)\` (build ${{ github.run_number }})"
             echo "- Size: $(du -h out/Comet-unsigned.ipa | cut -f1)"
             echo ""
-            echo "Download \`Comet-unsigned-ipa\` below, then install it with Sideloadly,"
-            echo "AltStore/SideStore, or Xcode. It is unsigned on purpose: your tool"
-            echo "signs it with your own certificate."
+            echo "Download the **Comet-unsigned-ipa** artifact below and unzip it: it"
+            echo "contains \`Comet-unsigned.ipa\`. Install that with Sideloadly,"
+            echo "AltStore/SideStore, or Xcode. It is unsigned on purpose: your tool signs"
+            echo "it with your own certificate."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4

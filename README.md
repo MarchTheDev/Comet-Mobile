@@ -46,8 +46,14 @@ native file backend run on iOS". The answer used here:
 ## Getting the IPA
 
 1. Open **Actions → iOS → Run workflow** (or just push a commit).
-2. Wait ~6 minutes.
-3. Download the **`Comet-unsigned-ipa`** artifact at the bottom of the run.
+2. Wait ~10 minutes (a macOS runner has to be free first).
+3. Download the **`Comet-unsigned-ipa`** artifact at the bottom of the run and
+   unzip it — GitHub always wraps artifacts in a `.zip`. Inside is
+   `Comet-unsigned.ipa`.
+
+The run's summary also prints what ended up inside the package. If you would
+rather not use CI at all, `scripts/build-ipa.sh` does the same thing on your own
+Mac.
 
 By default it builds the pinned Comet commit in `scripts/prepare.sh`. Pass a
 different `comet_ref` in the workflow input to build, say, `main`:
