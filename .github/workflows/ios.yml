@@ -144,6 +144,8 @@ jobs:
             echo "- Comet: \`$(cat .comet-ref 2>/dev/null || echo unknown)\`"
             echo "- Version: \`$(cat .comet-version 2>/dev/null || echo 0.1.0)\` (build ${{ github.run_number }})"
             echo "- Size: $(du -h out/Comet-unsigned.ipa | cut -f1)"
+            echo "- Mobile shell: \`$(grep -hE "^mobile shell: " .mobile-test.log 2>/dev/null || echo "not run")\`"
+            echo "- Bridge: \`$(grep -hE "^bridge: " .shim-test.log 2>/dev/null || echo "not run")\`"
             echo ""
             echo "The IPA is attached to the draft release \`ios-latest\` as well as"
             echo "the artifact below; the release is the one that downloads as an"
