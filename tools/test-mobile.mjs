@@ -68,6 +68,7 @@ const replies = {
   search_vault: [],
   tray_available: false,
   "plugin:autostart|is_enabled": false,
+  "plugin:app|build": "18",
   "plugin:window|show": null,
   "plugin:window|hide": null,
   "plugin:window|is_visible": true,
@@ -348,6 +349,14 @@ await settle(4);
 document.querySelector(".m-library-done").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 await settle(3);
 check("Done closes the sheet", !document.querySelector(".m-library"));
+
+libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(6);
+check("the sheet says which build is installed",
+  (document.querySelector('[data-role="build"]')?.textContent ?? "").includes("build 18"),
+  document.querySelector('[data-role="build"]')?.textContent ?? "none");
+document.querySelector(".m-library-done").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(3);
 
 // The workspace switcher is Comet's own menu, which renders inside the sidebar;
 // the sheet's row has to open it even though the sidebar is never drawn.

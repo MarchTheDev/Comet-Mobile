@@ -157,6 +157,12 @@ final class Bridge {
             case "plugin:app|name":
                 complete(.value("Comet"))
 
+            // The build number is what a sideloaded app has no other way to
+            // show: every install looks identical until something says which.
+            case "plugin:app|build":
+                let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+                complete(.value(build))
+
             // MARK: The shell's own two hooks
 
             // The mobile layer taps through the Taptic Engine on every dock

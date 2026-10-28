@@ -445,6 +445,15 @@ html.comet-mobile .m-library-row[aria-current="page"] .m-library-icon {
   background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
+html.comet-mobile .m-library-build {
+  flex: 0 0 auto;
+  padding: 10px 20px calc(12px + var(--m-safe-bottom));
+  text-align: center;
+  text-transform: none;
+  letter-spacing: .01em;
+  font-weight: 600;
+}
+
 @keyframes comet-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* --------------------------------------------------- workspace, and the mountain */

@@ -47,7 +47,7 @@ else can I do. Those are a dock and a sheet.
 | Bar | Transparent over the Matterhorn and glass once content scrolls under it. Back on the leading edge when there is somewhere to go, the current name, search on the trailing edge. |
 | Dock | A floating glass capsule, inset from the edges, above the home indicator, with a tinted lens on the selected tab: **Files, Search, Calendar, Library**. |
 | Create | Its own floating button above the dock — a phone's main verb does not belong in a tab slot. |
-| Library | A page sheet holding what the sidebar used to: the workspace switcher, then Browse (All files, Pinned, Favorites, Tree, Brain) and Tools (Calendar, Passwords, Manage tags, Settings), each with the count the app itself shows. |
+| Library | A page sheet holding what the sidebar used to: the workspace switcher, then Browse (All files, Pinned, Favorites, Tree, Brain) and Tools (Calendar, Passwords, Manage tags, Settings), each with the count the app itself shows — and the build number at the bottom, because a sideloaded app has no other way to say which build it is. |
 | Search | Comet's own search, opened full-screen from the app's search button: same query, same results, keyboard up. |
 | Rows | 68 pt tall, 16.5 pt titles, always-visible menu buttons — there is no hover on a phone. |
 | Sheets | Inset cards with a grabber rising from the bottom edge, for menus and dialogs. |

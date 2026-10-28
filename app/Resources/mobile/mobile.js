@@ -98,6 +98,27 @@
     } catch (error) { /* a phone without haptics is still a phone */ }
   }
 
+  /*
+   * Which build is installed. A sideloaded app has no App Store to say, and
+   * "is this the build with the new chrome?" is the first question anyone asks
+   * of a screenshot — so the answer lives in the Library sheet.
+   */
+  var buildLabel = "";
+  function fetchBuild() {
+    try {
+      var internals = window.__TAURI_INTERNALS__;
+      if (!internals || typeof internals.invoke !== "function") return;
+      var result = internals.invoke("plugin:app|build", {});
+      if (result && typeof result.then === "function") {
+        result.then(function (value) {
+          if (!value) return;
+          buildLabel = String(value);
+          if (library) syncLibrary();
+        }).catch(function () {});
+      }
+    } catch (error) { /* the sheet simply omits it */ }
+  }
+
   /* The status bar has to change colour with the theme, or one of the two
      themes has an invisible clock in the corner. */
   var lastStatusBarTheme = null;
@@ -455,8 +476,14 @@
       scroll.appendChild(group);
     });
 
+    var foot = document.createElement("div");
+    foot.className = "m-library-label m-library-build";
+    foot.dataset.role = "build";
+    foot.textContent = buildLabel ? "Comet for iOS · build " + buildLabel : "Comet for iOS";
+
     sheet.appendChild(head);
     sheet.appendChild(scroll);
+    sheet.appendChild(foot);
     backdrop.appendChild(sheet);
     return backdrop;
   }
@@ -476,6 +503,9 @@
     var detail = library.querySelector('[data-role="workspace-detail"]');
     if (name) name.textContent = workspace ? (workspace.textContent || "").trim() : "Comet";
     if (detail) detail.textContent = workspaceSmall ? (workspaceSmall.textContent || "").trim() : "Local workspace";
+
+    var build = library.querySelector('[data-role="build"]');
+    if (build) build.textContent = buildLabel ? "Comet for iOS · build " + buildLabel : "Comet for iOS";
 
     var current = activeDestination();
     var rows = library.querySelectorAll(".m-library-row[data-destination]");
@@ -717,6 +747,7 @@
     if (!one(".app-shell")) return false;
 
     document.documentElement.classList.add("comet-mobile");
+    fetchBuild();
     document.body.appendChild(buildBar());
     document.body.appendChild(buildDock());
     document.body.appendChild(buildCreate());
