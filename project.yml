@@ -33,8 +33,13 @@ targets:
     sources:
       # The shell itself.
       - path: app/CometMobile
-      # The Tauri bridge, injected as a user script.
+      # Injected as user scripts: the Tauri bridge, the mobile stylesheet, and
+      # the mobile shell.
       - path: app/Resources/shim.js
+        buildPhase: resources
+      - path: app/Resources/mobile/mobile.css
+        buildPhase: resources
+      - path: app/Resources/mobile/mobile.js
         buildPhase: resources
       # The built Comet page. A folder reference, so the 9 MB of PDF.js assets
       # are copied verbatim and /pdfjs/... keeps working.

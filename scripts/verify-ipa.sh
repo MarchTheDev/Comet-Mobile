@@ -28,6 +28,8 @@ fail() { echo "error: $*" >&2; exit 1; }
 [ -f "$APP/Info.plist" ] || fail "the app has no Info.plist"
 [ -f "$APP/www/index.html" ] || fail "the Comet page is missing from the app"
 [ -f "$APP/shim.js" ] || fail "the Tauri bridge shim is missing from the app"
+[ -f "$APP/mobile.css" ] || fail "the mobile stylesheet is missing from the app"
+[ -f "$APP/mobile.js" ] || fail "the mobile shell is missing from the app"
 [ -f "$APP/Assets.car" ] || fail "the compiled asset catalog is missing"
 
 read_plist() {
@@ -54,6 +56,7 @@ echo "ipa: $IPA ($IPA_SIZE)"
 echo "bundle: $BUNDLE_ID $VERSION ($BUILD), minimum iOS $MINIMUM"
 echo "executable: $EXECUTABLE, architectures $ARCH"
 echo "page: index.html $PAGE_SIZE, $PDFJS_COUNT PDF.js resources, shim.js $SHIM_SIZE"
+echo "mobile layer: mobile.css $(du -h "$APP/mobile.css" | cut -f1), mobile.js $(du -h "$APP/mobile.js" | cut -f1)"
 echo "signing: code signature $SIGNED, provisioning profile $PROVISION"
 echo "assets: Assets.car $(du -h "$APP/Assets.car" | cut -f1)"
 

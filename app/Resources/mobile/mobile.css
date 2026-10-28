@@ -1,0 +1,590 @@
+/* ==========================================================================
+   Comet for iOS — the mobile layer
+   --------------------------------------------------------------------------
+   Comet's own stylesheet is a desktop layout that shrinks: a permanent
+   sidebar, a 60px top bar of breadcrumbs, hover-revealed actions, cards
+   floating in wide margins. Nothing here changes what the app does; this file
+   gives it a phone's shape instead — one column, a thumb bar, sheets, and
+   touch-sized everything.
+
+   Two rules keep it maintainable:
+
+   1. Every colour comes from Comet's own custom properties (--panel, --text,
+      --accent, ...). That is why all fifteen palettes and the light/dark
+      choice keep working without a single palette-specific override.
+   2. Everything is scoped to html.comet-mobile, a class the shell adds before
+      the first paint. Nothing leaks into the page if the layer is absent.
+
+   Sizes are quoted in points: a 52px header is 52 CSS pixels, which WKWebView
+   maps to points at any device scale.
+   ========================================================================== */
+
+html.comet-mobile {
+  --m-header: 52px;
+  --m-tabs: 58px;
+  --m-gutter: 12px;
+  --m-radius: 16px;
+  --m-row: 56px;
+  /* Clears the fixed chrome above and below the scrolling content. */
+  --m-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --m-chrome-top: calc(var(--m-header) + env(safe-area-inset-top, 0px));
+  --m-chrome-bottom: calc(var(--m-tabs) + var(--m-safe-bottom));
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+/* Comet's desktop bars and the sidebar's resize handle have no job here. */
+html.comet-mobile .app-topbar { display: none; }
+html.comet-mobile .sidebar-resize { display: none; }
+html.comet-mobile .sidebar-close-mobile { display: inline-grid; }
+
+/* --------------------------------------------------------------- the frame */
+
+html.comet-mobile .app-shell { background: var(--canvas); }
+
+html.comet-mobile .main-area {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--m-chrome-top);
+  padding-bottom: var(--m-chrome-bottom);
+  min-height: 0;
+}
+
+html.comet-mobile .workspace-scroll {
+  padding: 0 0 4px;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+html.comet-mobile .workspace-scroll::-webkit-scrollbar { display: none; }
+
+/* ------------------------------------------------------------------ header */
+
+html.comet-mobile .m-header {
+  position: fixed;
+  z-index: 30;
+  inset: 0 0 auto 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--m-chrome-top);
+  padding: env(safe-area-inset-top, 0px) 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180%) blur(18px);
+  color: var(--text);
+}
+
+html.comet-mobile .m-header-button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--text-secondary);
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  transition: background .15s ease, color .15s ease;
+}
+html.comet-mobile .m-header-button:active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+html.comet-mobile .m-header-button svg { width: 21px; height: 21px; }
+
+html.comet-mobile .m-header-title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 2px;
+}
+html.comet-mobile .m-header-title strong {
+  overflow: hidden;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -.01em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html.comet-mobile .m-header-title small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- thumb bar */
+
+html.comet-mobile .m-tabs {
+  position: fixed;
+  z-index: 30;
+  inset: auto 0 0 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  height: var(--m-chrome-bottom);
+  padding: 0 2px var(--m-safe-bottom);
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180%) blur(18px);
+}
+
+html.comet-mobile .m-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: var(--m-tabs);
+  padding: 0;
+  color: var(--text-muted);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  transition: color .16s ease;
+}
+html.comet-mobile .m-tab svg { width: 22px; height: 22px; }
+html.comet-mobile .m-tab span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+html.comet-mobile .m-tab[aria-current="page"] { color: var(--accent); }
+html.comet-mobile .m-tab:active { color: var(--text); }
+html.comet-mobile .m-tab[aria-current="page"] svg { transform: translateY(-1px); }
+
+/* The one raised button: creating something is what a phone is for. */
+html.comet-mobile .m-tab.m-tab-new {
+  justify-content: flex-end;
+  padding-bottom: 5px;
+}
+html.comet-mobile .m-tab.m-tab-new .m-tab-fab {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-top: -20px;
+  color: var(--canvas);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: transform .16s ease;
+}
+html.comet-mobile .m-tab.m-tab-new .m-tab-fab svg { width: 24px; height: 24px; }
+html.comet-mobile .m-tab.m-tab-new:active .m-tab-fab { transform: scale(.93); }
+html.comet-mobile .m-tab.m-tab-new span { display: none; }
+
+/* ------------------------------------------------------------------ drawer */
+
+html.comet-mobile .sidebar {
+  width: min(330px, 86vw);
+  padding: 0 14px env(safe-area-inset-bottom, 0px);
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: 24px 0 60px -30px #000a;
+}
+html.comet-mobile .sidebar-brand {
+  min-height: 56px;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+html.comet-mobile .brand-name { font-size: 17px; }
+html.comet-mobile .sidebar-scrim {
+  background: #00000047;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+html.comet-mobile .workspace-picker { min-height: 52px; }
+html.comet-mobile .primary-nav { gap: 1px; }
+html.comet-mobile .nav-item {
+  min-height: 46px;
+  padding: 0 10px;
+  border-radius: 11px;
+}
+html.comet-mobile .nav-item svg { width: 19px; height: 19px; }
+html.comet-mobile .nav-item span { font-size: 14px; }
+html.comet-mobile .sidebar-search {
+  min-height: 44px;
+  margin: 4px 0 10px;
+  border-radius: 11px;
+}
+html.comet-mobile .sidebar-search kbd { display: none; }
+html.comet-mobile .sidebar-section-heading { margin-top: 6px; }
+html.comet-mobile .section-add { width: 38px; height: 38px; }
+html.comet-mobile .tree-item { min-height: 44px; border-radius: 9px; }
+html.comet-mobile .tree-name { font-size: 13.5px; }
+html.comet-mobile .sidebar-footer { padding-bottom: 12px; }
+html.comet-mobile .vault-dropdown { max-height: min(60vh, 420px); overflow-y: auto; }
+
+/* --------------------------------------------------- workspace, and the mountain */
+
+/* The mountain is the point of the workspace view, so on a phone it becomes a
+   full-bleed hero rather than a wide banner with side margins. */
+html.comet-mobile .cover-card {
+  height: clamp(150px, 25vh, 210px);
+  margin: 0;
+  padding: 20px 18px;
+  border-radius: 0;
+  background-position: center, 62% top;
+  background-size: cover, cover;
+  box-shadow: none;
+}
+html.comet-mobile .cover-card h1 {
+  margin: 8px 0 6px;
+  font-size: clamp(23px, 7vw, 30px);
+  letter-spacing: -.045em;
+}
+html.comet-mobile .cover-card p {
+  max-width: 90%;
+  font-size: 12px;
+  line-height: 1.5;
+}
+html.comet-mobile .cover-location { display: none; }
+
+/* The mountain stays behind the files, but fainter: text has to win. */
+html.comet-mobile .mountain-visible .workspace-scroll,
+html.comet-mobile[data-theme="dark"] .mountain-visible .workspace-scroll {
+  background-image: linear-gradient(
+      color-mix(in srgb, var(--canvas) 93%, transparent),
+      color-mix(in srgb, var(--canvas) 97%, transparent)
+    ),
+    url("/matterhorn.png");
+  background-position: center, 60% top;
+  background-size: cover, cover;
+  background-attachment: local, local;
+  background-repeat: no-repeat;
+}
+
+html.comet-mobile .workspace-panel,
+html.comet-mobile .overview-card,
+html.comet-mobile .note-card,
+html.comet-mobile .media-card,
+html.comet-mobile .explore-card,
+html.comet-mobile .settings-page,
+html.comet-mobile .todo-board {
+  margin: var(--m-gutter) var(--m-gutter) 0;
+  border-radius: var(--m-radius);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  box-shadow: 0 1px 2px #0000000a;
+}
+html.comet-mobile .workspace-endnote { padding: 18px 18px 26px; }
+
+html.comet-mobile .workspace-heading { gap: 10px; margin-bottom: 14px; }
+html.comet-mobile .overview-heading h2 { font-size: 21px; }
+html.comet-mobile .overview-heading p { font-size: 12px; line-height: 1.5; }
+html.comet-mobile .overview-create { height: 38px; padding: 0 14px; border-radius: 11px; }
+
+/* Size slider and layout toggle: keep the toggle, lose the slider. A phone
+   should not ask you to fine-tune icon pixels. */
+html.comet-mobile .workspace-size { display: none; }
+html.comet-mobile .workspace-controls { gap: 10px; margin-bottom: 12px; }
+html.comet-mobile .layout-toggle { margin-left: auto; }
+html.comet-mobile .layout-toggle button { width: 40px; height: 34px; }
+
+/* ------------------------------------------------------------ files and rows */
+
+html.comet-mobile .file-list { gap: 2px; }
+html.comet-mobile .workspace-entry {
+  min-height: var(--m-row);
+  border-radius: 12px;
+}
+html.comet-mobile .workspace-entry-open { min-height: var(--m-row); padding: 6px 4px; gap: 12px; }
+html.comet-mobile .workspace-entry-copy strong { font-size: 14.5px; }
+html.comet-mobile .workspace-entry-copy small { font-size: 11px; }
+html.comet-mobile .workspace-entry-icon { width: 38px; height: 38px; }
+/* Always visible: on a phone there is no hover, so a hidden menu is a lost menu. */
+html.comet-mobile .workspace-entry-more,
+html.comet-mobile .tree-action,
+html.comet-mobile .tree-drag-handle {
+  width: 40px;
+  height: 40px;
+  opacity: 1;
+}
+
+/* Two columns of tiles, whatever the saved icon size says. */
+html.comet-mobile .file-gallery {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px;
+}
+html.comet-mobile .file-gallery .workspace-entry { min-height: 0; }
+html.comet-mobile .file-gallery .workspace-entry-open {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 104px;
+  padding: 12px;
+}
+html.comet-mobile .file-gallery .workspace-entry-icon { width: 44px; height: 44px; }
+
+/* ----------------------------------------------------------- document view */
+
+html.comet-mobile .note-card,
+html.comet-mobile .media-card { padding: 0; overflow: hidden; }
+
+html.comet-mobile .document-header {
+  min-height: 0;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+/* The name is in the header above; repeating it here wastes the best space
+   on the screen. */
+html.comet-mobile .document-heading { display: none; }
+html.comet-mobile .document-actions {
+  flex: 1;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+html.comet-mobile .document-actions::-webkit-scrollbar { display: none; }
+html.comet-mobile .document-actions .icon-button,
+html.comet-mobile .document-actions .doc-action { width: 40px; height: 40px; }
+html.comet-mobile .save-indicator { margin-left: auto; padding-right: 4px; white-space: nowrap; }
+
+html.comet-mobile .view-tabs {
+  display: flex;
+  width: calc(100% - 24px);
+  margin: 10px 12px 0;
+  padding: 3px;
+  border-radius: 11px;
+}
+html.comet-mobile .view-tabs button { flex: 1; height: 34px; font-size: 12px; border-radius: 8px; }
+
+html.comet-mobile .format-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  min-height: 48px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  scrollbar-width: none;
+}
+html.comet-mobile .format-toolbar::-webkit-scrollbar { display: none; }
+html.comet-mobile .format-button { flex-basis: 38px; height: 38px; border-radius: 9px; }
+
+html.comet-mobile .document-body { padding: 18px 16px 44px; }
+html.comet-mobile .comet-editor-prose {
+  font-size: 16.5px;
+  line-height: 1.72;
+}
+html.comet-mobile .document-footer { padding: 0 16px 14px; }
+html.comet-mobile .media-heading { padding-right: 0; }
+html.comet-mobile .media-top-actions { position: static; justify-content: flex-end; padding: 8px 10px 0; }
+
+/* Boards and the calendar are canvases: let them own the gesture. */
+html.comet-mobile .todo-board { touch-action: none; }
+html.comet-mobile .todo-workspace { height: 100%; }
+html.comet-mobile .calendar-card { padding: 14px 10px; }
+html.comet-mobile .calendar-day { min-height: 52px; }
+html.comet-mobile .calendar-day-events { display: none; }
+html.comet-mobile .calendar-day-dot { display: block; }
+
+/* ------------------------------------------------------------- settings view */
+
+html.comet-mobile .settings-page { padding: 16px 14px 26px; }
+html.comet-mobile .setting-row { min-height: 54px; }
+html.comet-mobile .setting-copy strong { font-size: 14px; }
+html.comet-mobile .setting-copy small { font-size: 11.5px; line-height: 1.45; }
+html.comet-mobile .settings-nav-arrow { display: none; }
+html.comet-mobile .settings-section + .settings-section { margin-top: 22px; }
+
+/* ------------------------------------------------------------------ sheets */
+
+/* Dialogs were centred boxes on a 1280px window. On a phone they come up from
+   the bottom, sized for a thumb, and stop short of the home indicator. */
+html.comet-mobile .modal-backdrop {
+  padding: 0;
+  place-items: end center;
+  background: #0a141b66;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+html.comet-mobile .modal {
+  width: 100%;
+  max-width: none;
+  max-height: 92vh;
+  padding: 10px 18px calc(18px + var(--m-safe-bottom));
+  border: 0;
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  box-shadow: 0 -20px 60px -20px #0008;
+}
+html.comet-mobile .modal::before {
+  content: "";
+  display: block;
+  width: 38px;
+  height: 4px;
+  margin: 4px auto 12px;
+  border-radius: 99px;
+  background: var(--border-strong);
+}
+html.comet-mobile .modal-icon { width: 42px; height: 42px; border-radius: 13px; }
+html.comet-mobile .modal h2 { margin: 12px 0 6px; font-size: 20px; }
+html.comet-mobile .modal p { margin-bottom: 16px; font-size: 13.5px; line-height: 1.6; }
+html.comet-mobile .modal-close {
+  top: 16px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+}
+html.comet-mobile .modal-actions {
+  position: sticky;
+  bottom: 0;
+  gap: 8px;
+  margin: 18px -18px calc(-18px - var(--m-safe-bottom));
+  padding: 12px 18px calc(14px + var(--m-safe-bottom));
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+html.comet-mobile .modal-actions .primary-button,
+html.comet-mobile .modal-actions .secondary-button,
+html.comet-mobile .modal-actions .danger-button {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+html.comet-mobile .modal-actions .text-button { font-size: 13px; }
+
+/* Menus open at the pointer on a desktop. There is no pointer here, so every
+   menu becomes a sheet: the same items, reachable by thumb, never off-screen.
+   The inline left/top the app writes is what has to be overridden. */
+html.comet-mobile .context-menu {
+  position: fixed !important;
+  z-index: 36;
+  top: auto !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: auto !important;
+  max-height: 72vh;
+  overflow-y: auto;
+  padding: 10px 10px calc(12px + var(--m-safe-bottom));
+  border: 0;
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  box-shadow: 0 -18px 50px -18px #0009;
+  animation: comet-sheet-in .2s cubic-bezier(.2, .8, .2, 1);
+  overscroll-behavior: contain;
+}
+html.comet-mobile .context-menu::before {
+  content: "";
+  display: block;
+  width: 38px;
+  height: 4px;
+  margin: 2px auto 8px;
+  border-radius: 99px;
+  background: var(--border-strong);
+}
+html.comet-mobile .context-menu > button {
+  height: 50px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 650;
+}
+html.comet-mobile .context-menu > button svg { width: 19px; height: 19px; }
+html.comet-mobile .context-heading { padding: 8px 12px 4px; font-size: 11px; }
+html.comet-mobile .context-divider { margin: 6px 8px; }
+
+@keyframes comet-sheet-in {
+  from { transform: translateY(14px); opacity: .6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Layer order, stated once: content < header and bar (30) < drawer (40/41)
+   < menus (42) < dialogs (44) < the app's restore overlay (50). */
+html.comet-mobile .sidebar-scrim { z-index: 40; }
+html.comet-mobile .sidebar { z-index: 41; }
+html.comet-mobile .context-menu { z-index: 42; }
+html.comet-mobile .modal-backdrop { z-index: 44; }
+
+/* The first-run and no-workspace screens: one clear action. */
+html.comet-mobile .workspace-panel .primary-button,
+html.comet-mobile .workspace-blank .primary-button { min-height: 46px; }
+html.comet-mobile .restoring-overlay { font-size: 14px; }
+
+/* --------------------------------------------------------------- touch details */
+
+/* A long press on a row is the phone's right-click; it must not start a text
+   selection or a link preview instead. The editor is deliberately excluded. */
+html.comet-mobile .workspace-entry,
+html.comet-mobile .tree-item,
+html.comet-mobile .nav-item,
+html.comet-mobile .m-tab,
+html.comet-mobile .m-header,
+html.comet-mobile .view-tabs,
+html.comet-mobile .layout-toggle,
+html.comet-mobile .format-toolbar {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+html.comet-mobile button,
+html.comet-mobile .m-tab,
+html.comet-mobile .nav-item { touch-action: manipulation; }
+html.comet-mobile * { -webkit-tap-highlight-color: transparent; }
+
+/* iOS zooms the whole page when a field smaller than 16px is focused, which on
+   this app looked like the layout jumping on every dialog. 16px is the floor. */
+html.comet-mobile .modal input,
+html.comet-mobile .modal textarea,
+html.comet-mobile .modal select,
+html.comet-mobile .path-popover input,
+html.comet-mobile .search-dialog input { font-size: 16px; }
+
+/* Native-feeling scroll surfaces. */
+html.comet-mobile .tree-scroll,
+html.comet-mobile .vault-dropdown,
+html.comet-mobile .modal,
+html.comet-mobile .context-menu { -webkit-overflow-scrolling: touch; }
+
+/* -------------------------------------------------------------- tablet sizing */
+
+/* An iPad is not a large phone: the same shell, with more room and the drawer
+   allowed to stay put. */
+@media (min-width: 760px) {
+  html.comet-mobile {
+    --m-gutter: 18px;
+    --m-tabs: 64px;
+  }
+  html.comet-mobile .m-tab span { font-size: 11px; }
+  html.comet-mobile .file-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  html.comet-mobile .file-gallery .workspace-entry-open { min-height: 124px; }
+  html.comet-mobile .workspace-entry-copy strong { font-size: 15px; }
+  html.comet-mobile .document-body { padding: 26px 34px 56px; }
+  html.comet-mobile .comet-editor-prose { font-size: 17.5px; }
+  html.comet-mobile .cover-card { height: clamp(190px, 22vh, 260px); }
+  html.comet-mobile .modal { max-width: 620px; border-radius: 22px; margin: 0 auto; }
+  html.comet-mobile .modal-backdrop { place-items: center; padding: 24px; }
+  html.comet-mobile .context-menu {
+    right: auto !important;
+    left: 50% !important;
+    bottom: 24px !important;
+    width: 380px !important;
+    transform: translateX(-50%);
+    border-radius: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.comet-mobile .context-menu { animation: none; }
+  html.comet-mobile .m-tab.m-tab-new .m-tab-fab:active { transform: none; }
+}

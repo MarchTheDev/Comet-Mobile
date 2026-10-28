@@ -97,17 +97,57 @@ final class CometViewController: UIViewController, WKNavigationDelegate, WKUIDel
         webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
     }
 
-    /// The shim has to exist before the page's own scripts run, so it is a user
-    /// script at document start rather than something injected afterwards.
+    /// Everything the page needs before its own first line runs, in order:
+    ///
+    ///  1. the bridge, because Comet's module scope asks `isTauri()` immediately;
+    ///  2. the mobile stylesheet and the `comet-mobile` class, so the desktop
+    ///     layout is never painted at all — a flash of a sidebar squeezed onto
+    ///     a phone is exactly what this build exists to remove;
+    ///  3. the mobile shell, after the document, where it can wait for React.
     private func installShim(base: String) {
-        guard let url = Bundle.main.url(forResource: "shim", withExtension: "js"),
-              let template = try? String(contentsOf: url, encoding: .utf8) else {
-            return
-        }
-        let source = template.replacingOccurrences(of: "__COMET_BASE__", with: base)
         let controller = webView.configuration.userContentController
         controller.removeAllUserScripts()
-        controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+
+        if let url = Bundle.main.url(forResource: "shim", withExtension: "js"),
+           let template = try? String(contentsOf: url, encoding: .utf8) {
+            let source = template.replacingOccurrences(of: "__COMET_BASE__", with: base)
+            controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+
+        if let cssScript = mobileStyleScript() {
+            controller.addUserScript(WKUserScript(source: cssScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+
+        if let url = Bundle.main.url(forResource: "mobile", withExtension: "js"),
+           let source = try? String(contentsOf: url, encoding: .utf8) {
+            controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
+    }
+
+    /// The stylesheet travels inside the script rather than as a linked file:
+    /// it applies before the body exists, which is the whole point of doing it
+    /// at document start, and it cannot race the page.
+    private func mobileStyleScript() -> String? {
+        guard let cssURL = Bundle.main.url(forResource: "mobile", withExtension: "css"),
+              let css = try? String(contentsOf: cssURL, encoding: .utf8) else {
+            return nil
+        }
+        let encoded = css
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "`", with: "\\`")
+            .replacingOccurrences(of: "${", with: "\\${")
+        return """
+        (function () {
+          try {
+            var root = document.documentElement;
+            root.classList.add("comet-mobile");
+            var style = document.createElement("style");
+            style.id = "comet-mobile-styles";
+            style.textContent = `\(encoded)`;
+            (document.head || root).appendChild(style);
+          } catch (error) { /* a broken stylesheet must not stop the app */ }
+        })();
+        """
     }
 
     // MARK: - Launch overlay
