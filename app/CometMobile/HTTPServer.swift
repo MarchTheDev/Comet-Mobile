@@ -28,9 +28,11 @@ final class HTTPServer {
     private var listener: NWListener?
     private var boundPort: UInt16 = 0
 
-    /// A command can wait on the document picker or a share sheet; give up on
-    /// the connection long before a human would leave one of those open.
-    private let requestTimeout: TimeInterval = 300
+    /// How long a client may hold a connection open without sending a request.
+    /// Once the request has arrived the clock stops: a response may legitimately
+    /// take a while (a picker, a share sheet) and a media stream can run for
+    /// hours.
+    private let requestTimeout: TimeInterval = 60
 
     init(router: @escaping Router) {
         self.router = router
@@ -130,16 +132,17 @@ final class HTTPServer {
 
     // MARK: - Connections
 
-    private func accept(_ connection: NWConnection) {
-        connection.start(queue: queue)
-        armTimeout(connection)
-        receive(on: connection, buffer: RequestBuffer())
+    private final class ConnectionState {
+        var receivedRequest = false
     }
 
-    private func armTimeout(_ connection: NWConnection) {
+    private func accept(_ connection: NWConnection) {
+        let state = ConnectionState()
+        connection.start(queue: queue)
         queue.asyncAfter(deadline: .now() + requestTimeout) {
-            connection.cancel()
+            if !state.receivedRequest { connection.cancel() }
         }
+        receive(on: connection, buffer: RequestBuffer(), state: state)
     }
 
     /// One owner for the bytes as they arrive: appending into a class keeps
@@ -148,7 +151,7 @@ final class HTTPServer {
         var data = Data()
     }
 
-    private func receive(on connection: NWConnection, buffer: RequestBuffer) {
+    private func receive(on connection: NWConnection, buffer: RequestBuffer, state: ConnectionState) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { [weak self] chunk, _, isComplete, error in
             guard let self else {
                 connection.cancel()
@@ -168,11 +171,12 @@ final class HTTPServer {
                 } else {
                     // Hop through the queue instead of recursing so that a very
                     // large upload cannot grow the stack.
-                    self.queue.async { self.receive(on: connection, buffer: buffer) }
+                    self.queue.async { self.receive(on: connection, buffer: buffer, state: state) }
                 }
             case .invalid(let message):
                 self.send(HTTPResponse.text(message, status: 400), on: connection, method: "GET")
             case .complete(let request):
+                state.receivedRequest = true
                 self.respond(to: request, on: connection)
             }
         }
