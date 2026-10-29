@@ -10,6 +10,9 @@
 app/Resources/www/
 app/Resources/Assets.xcassets/AppIcon.appiconset/*.png
 
+# Produced by tools/preview.mjs — a browser preview of the mobile layer.
+.preview/
+
 # Produced by scripts/build-ipa.sh.
 CometMobile.xcodeproj/
 build/

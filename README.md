@@ -251,6 +251,7 @@ scripts/build-ipa.sh    build and package the IPA
 scripts/verify-ipa.sh   report what is inside a finished IPA
 tools/test-shim.mjs     drives the shim with the genuine @tauri-apps packages
 tools/test-mobile.mjs   drives the real Comet UI with the mobile layer installed
+tools/preview.mjs       builds the page with the layer and serves it in a phone frame
 .github/workflows/      CI: builds the IPA and publishes the draft release
 ```
 
@@ -276,7 +277,11 @@ inset sheets, inputs are 16 px so iOS does not zoom, and the layers stack in the
 intended order.
 
 jsdom has no layout engine, so this proves structure and behaviour, not
-appearance. The first run on a device is still the first time anyone sees it.
+appearance. `node tools/preview.mjs` covers the gap: it splices the layer into
+Comet's page the way `CometViewController` does and serves it in a phone-sized
+frame, so layout, motion, palettes and the Files surface can be looked at in a
+browser. It is a development aid, and it leaves out what needs the Swift host —
+haptics, the status bar, the edge swipe.
 
 `scripts/verify-ipa.sh out/Comet-unsigned.ipa` unpacks a finished IPA and checks
 the executable architecture, the page, the mobile layer, the icon catalog and
