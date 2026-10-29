@@ -1,0 +1,669 @@
+/*
+ * Checks the mobile shell against the real Comet app.
+ *
+ * The app is not mocked: Comet's own App.tsx is bundled with esbuild, mounted
+ * in jsdom exactly as its own test suite mounts components, and driven through
+ * the same Tauri bridge shim the phone uses, talking to a small stand-in for
+ * the native side. mobile.js is then loaded on top, and every anchor it presses
+ * is the app's genuine button.
+ *
+ * What that can prove: the chrome attaches, the tabs reach the app's real
+ * controls, long-press opens the app's real menu, and none of it duplicates.
+ * What it cannot: how any of it looks. jsdom has no layout and no paint.
+ *
+ * Usage: node tools/test-mobile.mjs [path-to-comet-web]
+ */
+import { mkdtempSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const shimPath = path.join(here, "..", "app", "Resources", "shim.js");
+const mobilePath = path.join(here, "..", "app", "Resources", "mobile", "mobile.js");
+const cssPath = path.join(here, "..", "app", "Resources", "mobile", "mobile.css");
+const cometWeb = path.resolve(process.argv[2] ?? process.env.COMET_WEB ?? path.join(here, "..", ".comet", "web"));
+
+/*
+ * Everything below runs out of Comet's own node_modules, so the check runs
+ * against the exact packages the app is built with. esbuild arrives as a
+ * dependency of Vite rather than of Comet, so it is looked up in the two places
+ * npm may put it before giving up with something readable.
+ */
+function fromComet(...candidates) {
+  for (const candidate of candidates) {
+    const full = path.join(cometWeb, candidate);
+    if (existsSync(full)) return pathToFileURL(full).href;
+  }
+  throw new Error(
+    `Could not find ${candidates[0]} under ${cometWeb}.\n` +
+    `Run "npm ci" in that directory first (scripts/prepare.sh does it).`
+  );
+}
+function cometPackage(dir, entry = "lib/api.js") {
+  return fromComet(`node_modules/${dir}/${entry}`, `node_modules/vite/node_modules/${dir}/${entry}`);
+}
+
+let failures = 0;
+const results = [];
+function check(name, condition, detail) {
+  if (condition) console.log(`  ok    ${name}`);
+  else { failures++; console.log(`  FAIL  ${name}${detail ? ` — ${detail}` : ""}`); }
+  results.push(condition);
+}
+
+/* ------------------------------------------------------------------ fixtures */
+
+const files = [
+  { name: "Welcome.md", path: "/vault/Welcome.md", kind: "file" },
+  { name: "Ideas.md", path: "/vault/Ideas.md", kind: "file" },
+  { name: "holiday.png", path: "/vault/holiday.png", kind: "file" },
+  { name: "Archive", path: "/vault/Archive", kind: "folder" },
+  { name: "Projects", path: "/vault/Projects", kind: "folder" }
+];
+
+const replies = {
+  list_vault: files,
+  read_note: "# Welcome\n\nThis is the test workspace.\n",
+  search_vault: [],
+  tray_available: false,
+  "plugin:autostart|is_enabled": false,
+  "plugin:app|build": "18",
+  "plugin:window|show": null,
+  "plugin:window|hide": null,
+  "plugin:window|is_visible": true,
+  "plugin:event|listen": 1,
+  "plugin:event|unlisten": null,
+  "plugin:event|emit": null,
+  restore_vault_access: null,
+  google_status: false,
+  "plugin:dialog|open": "/vault",
+  open_vault: "/vault",
+  write_note: null,
+  create_note: null,
+  create_dir: null,
+  "plugin:opener|open_url": null,
+  restore_vault: null,
+  read_audio_metadata: null,
+  read_cached_music_cover: null,
+  read_music_cover_for_file: null,
+  music_file_fingerprint: null,
+  lookup_music_cover: null
+};
+
+const seen = [];
+const server = createServer((request, response) => {
+  if (request.method !== "POST") { response.writeHead(200).end("{}"); return; }
+  let body = "";
+  request.on("data", (chunk) => { body += chunk; });
+  request.on("end", () => {
+    let payload = {};
+    try { payload = JSON.parse(body); } catch { /* ignore */ }
+    seen.push(payload.cmd);
+    const value = Object.prototype.hasOwnProperty.call(replies, payload.cmd) ? replies[payload.cmd] : null;
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ ok: true, value }));
+  });
+});
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+const base = `http://127.0.0.1:${server.address().port}`;
+
+/* ------------------------------------------------------------------- jsdom */
+
+const { JSDOM } = await import(fromComet("node_modules/jsdom/lib/api.js"));
+
+const dom = new JSDOM('<!doctype html><html><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>', {
+  url: "http://127.0.0.1/",
+  pretendToBeVisual: true,
+  runScripts: "outside-only"
+});
+const { window } = dom;
+
+// The browser surfaces Comet touches that jsdom either lacks or stubs out.
+class Observer {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return []; }
+}
+window.ResizeObserver = Observer;
+window.IntersectionObserver = Observer;
+window.matchMedia = (query) => ({
+  matches: /max-width|pointer/.test(query), media: query, onchange: null,
+  addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent() { return false; }
+});
+window.requestIdleCallback = (callback) => window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 8 }), 0);
+window.cancelIdleCallback = (handle) => window.clearTimeout(handle);
+window.HTMLElement.prototype.scrollIntoView = function () {};
+window.HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+window.HTMLMediaElement.prototype.pause = function () {};
+for (const name of ["PointerEvent"]) {
+  if (!window[name]) window[name] = window.MouseEvent;
+}
+window.URL.createObjectURL = () => "blob:comet-test";
+window.URL.revokeObjectURL = () => {};
+
+globalThis.window = window;
+globalThis.document = window.document;
+Object.defineProperty(globalThis, "navigator", { value: window.navigator, configurable: true });
+globalThis.HTMLElement = window.HTMLElement;
+globalThis.Element = window.Element;
+globalThis.Node = window.Node;
+globalThis.MouseEvent = window.MouseEvent;
+globalThis.Event = window.Event;
+globalThis.CustomEvent = window.CustomEvent;
+globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
+globalThis.matchMedia = window.matchMedia;
+globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+const nodeFetch = globalThis.fetch;
+globalThis.fetch = (...args) => nodeFetch(...args);
+// The shim runs inside the jsdom window, which has no fetch of its own.
+window.fetch = (...args) => nodeFetch(...args);
+
+try {
+  const indexedDB = await import(fromComet("node_modules/fake-indexeddb/auto/index.mjs"));
+  window.indexedDB = globalThis.indexedDB;
+  void indexedDB;
+} catch { /* cover cache is not exercised here */ }
+
+// The bridge, loaded the way the app loads it, pointed at the stand-in server.
+window.eval(readFileSync(shimPath, "utf8").replaceAll("__COMET_BASE__", base));
+
+// Inside WKWebView the page's global object *is* the window. Under jsdom the
+// bundle runs with Node's global object, so the app's isTauri() check and the
+// Tauri API's lookups need the same values in both places.
+globalThis.isTauri = true;
+globalThis.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__;
+globalThis.__TAURI_EVENT_PLUGIN_INTERNALS__ = window.__TAURI_EVENT_PLUGIN_INTERNALS__;
+
+/* --------------------------------------------------------- bundle the app */
+
+const esbuild = await import(cometPackage("esbuild", "lib/main.js"));
+const work = mkdtempSync(path.join(tmpdir(), "comet-mobile-test-"));
+const entry = path.join(cometWeb, ".test-mobile-entry.tsx");
+writeFileSync(entry, `
+  import React from "react";
+  import { createRoot } from "react-dom/client";
+  import App from "./src/App.tsx";
+  export function mount(node) {
+    const root = createRoot(node);
+    root.render(React.createElement(App));
+    return root;
+  }
+`);
+
+const bundlePath = path.join(work, "app.mjs");
+await esbuild.build({
+  entryPoints: [entry],
+  bundle: true,
+  format: "esm",
+  platform: "browser",
+  target: "es2022",
+  outfile: bundlePath,
+  logLevel: "silent",
+  loader: { ".png": "dataurl", ".svg": "text", ".css": "empty", ".mjs": "js" },
+  define: { "process.env.NODE_ENV": '"development"' },
+  plugins: [{
+    name: "comet-vite-isms",
+    setup(build) {
+      // Vite's virtual version module.
+      build.onResolve({ filter: /^virtual:comet-version$/ }, () => ({ path: "comet-version", namespace: "comet" }));
+      build.onLoad({ filter: /.*/, namespace: "comet" }, () => ({
+        contents: 'export const APP_VERSION = "0.1.0";',
+        loader: "js"
+      }));
+      // `import Worker from "pdfjs-dist/...?worker&inline"`.
+      build.onResolve({ filter: /\?worker(&inline)?$/ }, (args) => ({ path: args.path, namespace: "worker" }));
+      build.onLoad({ filter: /.*/, namespace: "worker" }, () => ({
+        contents: "export default class Worker { postMessage() {} terminate() {} addEventListener() {} removeEventListener() {} }",
+        loader: "js"
+      }));
+    }
+  }]
+});
+rmSync(entry, { force: true });
+
+const app = await import(pathToFileURL(bundlePath).href);
+const React = await import(fromComet("node_modules/react/index.js"));
+
+async function settle(times = 6) {
+  for (let index = 0; index < times; index++) {
+    await new Promise((resolve) => setTimeout(resolve, 12));
+    await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+  }
+}
+
+console.log("Comet mobile shell");
+
+/* ------------------------------------------------------------------ mount */
+
+const root = app.mount(document.getElementById("root"));
+await settle(10);
+
+check("the app mounts", Boolean(document.querySelector(".app-shell")));
+check("the desktop top bar is in the page before the shell runs", Boolean(document.querySelector(".app-topbar")));
+check("the shell has not run yet", !document.querySelector(".m-bar"));
+
+// Long-press is wired on touchstart; jsdom has no touch, so this exercises the
+// install path and the chrome only.
+window.eval(readFileSync(mobilePath, "utf8"));
+await settle(6);
+
+const html = document.documentElement;
+check("html carries comet-mobile", html.classList.contains("comet-mobile"));
+check("a header is added", Boolean(document.querySelector(".m-bar")));
+const tabs = [...document.querySelectorAll(".m-dock-item")];
+check("the dock has four items", tabs.length === 4, String(tabs.length));
+check("the dock is Files, Search, Calendar, Library",
+  tabs.map((tab) => tab.dataset.tab).join(",") === "files,search,calendar,library",
+  tabs.map((tab) => tab.dataset.tab).join(","));
+check("creating is its own floating button", Boolean(document.querySelector(".m-create")));
+check("there is no sidebar chrome to open", !document.querySelector(".m-bar-menu") && !document.querySelector(".sidebar-toggle, .sidebar-close-mobile")?.offsetParent);
+
+const header = document.querySelector(".m-bar");
+const title = header?.querySelector("strong")?.textContent ?? "";
+check("the header names where you are", title.length > 0, title);
+
+// Re-running the script must not stack a second set of chrome.
+window.eval(readFileSync(mobilePath, "utf8"));
+await settle(3);
+check("installing twice changes nothing", document.querySelectorAll(".m-bar").length === 1 && document.querySelectorAll(".m-dock").length === 1 && document.querySelectorAll(".m-create").length === 1);
+
+/* ------------------------------------------------------ opening a workspace */
+
+// Through the app's own controls: the workspace menu, then "Add workspace",
+// which asks the native side for a folder. The stand-in returns /vault.
+const picker = document.querySelector(".workspace-picker");
+picker.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+const addWorkspace = [...document.querySelectorAll(".vault-add")]
+  .find((button) => button.textContent.trim().startsWith("Add workspace"));
+check("the workspace menu offers Add workspace", Boolean(addWorkspace));
+addWorkspace.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(10);
+
+check("the bridge was actually used", seen.length > 0, `commands seen: ${seen.join(",") || "none"}`);
+const entries = [...document.querySelectorAll(".workspace-entry")];
+check("the workspace lists the files the native side returned", entries.length === files.length, String(entries.length));
+
+// Rows show titles, not file names: Comet strips ".md" for display, so the
+// accessible name on the row menu is the stable way to find a specific file.
+function welcomeRow() {
+  return [...document.querySelectorAll(".workspace-entry")]
+    .find((entry) => entry.querySelector('[aria-label="More options for Welcome.md"]')) ?? null;
+}
+
+/* ------------------------------------------------------- the file surface */
+
+const surface = document.querySelector(".m-files");
+check("the shell draws its own file surface", Boolean(surface) && surface.dataset.away === "false");
+check("the app's own list is put away while it shows",
+  document.documentElement.classList.contains("m-files-active"));
+check("its hero names the view", surface?.querySelector(".m-files-title")?.textContent === "All files",
+  surface?.querySelector(".m-files-title")?.textContent ?? "none");
+check("the hero counts what is there", /5 items/.test(surface?.querySelector(".m-files-sub")?.textContent ?? ""),
+  surface?.querySelector(".m-files-sub")?.textContent ?? "none");
+check("there is nothing to go up to at the top of a workspace",
+  surface?.querySelector(".m-files-up")?.hidden === true);
+
+const tiles = [...(surface?.querySelectorAll(".m-tile") ?? [])];
+const surfaceRows = [...(surface?.querySelectorAll(".m-file") ?? [])];
+check("folders are tiles, and folders come first",
+  tiles.map((tile) => tile.dataset.path).join(",") === "/vault/Archive,/vault/Projects",
+  tiles.map((tile) => tile.dataset.path).join(",") || "none");
+check("files are rows", surfaceRows.map((row) => row.dataset.path).join(",") ===
+  "/vault/Ideas.md,/vault/Welcome.md,/vault/holiday.png",
+  surfaceRows.map((row) => row.dataset.path).join(",") || "none");
+check("the sections are Folders, Notes and Media",
+  [...surface.querySelectorAll(".m-files-section h2")].map((h) => h.textContent).join(",") === "Folders,Notes,Media",
+  [...surface.querySelectorAll(".m-files-section h2")].map((h) => h.textContent).join(","));
+
+// Filters are a view over the same list; the app is not told anything.
+[...surface.querySelectorAll(".m-chip")].find((chip) => chip.dataset.filter === "folders")
+  .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+check("a filter narrows the surface", surface.querySelectorAll(".m-tile").length === 2 && surface.querySelectorAll(".m-file").length === 0);
+check("and says which one is on",
+  surface.querySelector('.m-chip[data-filter="folders"]')?.getAttribute("aria-selected") === "true");
+[...surface.querySelectorAll(".m-chip")].find((chip) => chip.dataset.filter === "all")
+  .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+
+// Walking into a folder and back out, through the surface only.
+[...surface.querySelectorAll(".m-tile")].find((tile) => tile.dataset.path === "/vault/Archive")
+  .querySelector(".m-tile-open").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(12);
+check("a tile walks into the folder", surface.querySelector(".m-files-title")?.textContent === "Archive",
+  surface.querySelector(".m-files-title")?.textContent ?? "none");
+check("inside a folder there is a way home", surface.querySelector(".m-files-up")?.hidden === false);
+surface.querySelector(".m-files-up").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(12);
+check("and it comes home", surface.querySelector(".m-files-title")?.textContent === "All files",
+  surface.querySelector(".m-files-title")?.textContent ?? "none");
+
+// Long press on a row the shell drew: it has to find the app's row and open
+// that row's own menu.
+function drawnRow(path) {
+  return [...surface.querySelectorAll(".m-file")].find((row) => row.dataset.path === path) ?? null;
+}
+const drawn = drawnRow("/vault/Ideas.md");
+check("a drawn row stands for a file", Boolean(drawn));
+if (drawn) {
+  const start = new window.Event("touchstart", { bubbles: true, cancelable: true });
+  Object.defineProperty(start, "touches", { value: [{ clientX: 30, clientY: 50 }] });
+  drawn.querySelector(".m-file-open").dispatchEvent(start);
+  await new Promise((resolve) => setTimeout(resolve, 560));
+  await settle(4);
+  check("long-pressing a drawn row opens that file's menu",
+    (document.querySelector(".context-menu")?.textContent ?? "").includes("Ideas.md"),
+    document.querySelector(".context-menu")?.textContent?.slice(0, 40) ?? "no menu");
+  document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await settle(4);
+
+  // The finger lifts, which fires a click. The shell's guard eats that one —
+  // so spend it here, or the next click in this file would disappear into it.
+  document.body.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await settle(2);
+}
+
+/* ------------------------------------------------------- driving the tabs */
+
+const filesTab = document.querySelector('.m-dock-item[data-tab="files"]');
+const calendarTab = document.querySelector('.m-dock-item[data-tab="calendar"]');
+const libraryTab = document.querySelector('.m-dock-item[data-tab="library"]');
+
+calendarTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(10);
+check("Calendar reaches the app's own Calendar view",
+  (document.querySelector(".primary-nav .nav-item.active")?.textContent ?? "").includes("Calendar"),
+  document.querySelector(".primary-nav .nav-item.active")?.textContent ?? "none");
+check("the Calendar tab is marked current", calendarTab.getAttribute("aria-current") === "page");
+check("the lens slides to the tab that is current",
+  /translate3d\(2\d\d%, 0, 0\)/.test(document.querySelector(".m-dock-lens")?.style.transform ?? ""),
+  document.querySelector(".m-dock-lens")?.style.transform ?? "none");
+
+filesTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(10);
+check("Files reaches the app's own All files view",
+  (document.querySelector(".primary-nav .nav-item.active")?.textContent ?? "").includes("All files"),
+  document.querySelector(".primary-nav .nav-item.active")?.textContent ?? "none");
+check("the Files tab is marked current, and only it", filesTab.getAttribute("aria-current") === "page" &&
+  calendarTab.getAttribute("aria-current") !== "page");
+check("the files came back", document.querySelectorAll(".workspace-entry").length === files.length);
+
+/* ------------------------------------------------------------ the library */
+
+libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+const library = document.querySelector(".m-library");
+check("Library opens a sheet, not a sidebar", Boolean(library) && Boolean(document.querySelector(".m-library-backdrop")));
+check("the sheet offers the workspace you are in",
+  Boolean(library?.querySelector('[data-role="workspace-name"]')?.textContent?.trim()));
+const libraryRows = [...(library?.querySelectorAll(".m-library-row[data-destination]") ?? [])];
+check("the sheet offers every destination the sidebar held",
+  libraryRows.map((row) => row.dataset.destination).join(",") ===
+  "files,pinned,favorites,tree,brain,calendar,passwords,tags,settings",
+  libraryRows.map((row) => row.dataset.destination).join(",") || "none");
+const appFilesCount = [...document.querySelectorAll(".sidebar .nav-item")]
+  .find((item) => item.textContent.trim().startsWith("All files"))?.querySelector("small")?.textContent?.trim();
+check("the sheet shows the counts the app shows, not its own",
+  libraryRows.find((row) => row.dataset.destination === "files")?.querySelector('[data-role="count"]')?.textContent === appFilesCount,
+  `${libraryRows.find((row) => row.dataset.destination === "files")?.querySelector('[data-role="count"]')?.textContent} vs app ${appFilesCount}`);
+
+// Picking a destination has to work while Comet's sidebar is display: none,
+// which is the whole point of building the sheet.
+[...library.querySelectorAll(".m-library-row")].find((row) => row.dataset.destination === "settings")
+  .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(10);
+check("picking Settings reaches the app's settings page", Boolean(document.querySelector(".settings-page")));
+check("and the sheet gets out of the way", !document.querySelector(".m-library"));
+
+libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+document.querySelector(".m-library-done").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(3);
+check("Done closes the sheet", !document.querySelector(".m-library"));
+
+libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(6);
+check("the sheet says which build is installed",
+  (document.querySelector('[data-role="build"]')?.textContent ?? "").includes("build 18"),
+  document.querySelector('[data-role="build"]')?.textContent ?? "none");
+document.querySelector(".m-library-done").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(3);
+
+// The workspace switcher is Comet's own menu, which renders inside the sidebar;
+// the sheet's row has to open it even though the sidebar is never drawn.
+libraryTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+document.querySelector(".m-library-workspace").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(6);
+check("the workspace row opens the app's own switcher", Boolean(document.querySelector(".vault-dropdown")));
+check("and the library sheet is gone first", !document.querySelector(".m-library"));
+// Close it through the app's own trigger, the way the scrim does.
+document.querySelector(".workspace-picker").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+check("the switcher closes again", !document.querySelector(".vault-dropdown"));
+
+/* ------------------------------------------------------------- the search */
+
+// Comet's own search overlay, opened from the button the desktop top bar holds.
+document.querySelector('.m-dock-item[data-tab="search"]').dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(8);
+check("Search opens the app's own search overlay", Boolean(document.querySelector(".search-dialog")));
+check("the search field takes the focus", document.activeElement === document.querySelector(".search-dialog input"));
+document.querySelector(".search-backdrop").dispatchEvent(new window.MouseEvent("mousedown", { bubbles: true }));
+await settle(6);
+check("and the overlay closes", !document.querySelector(".search-dialog"));
+
+// Back to the file list for the rest of the run.
+filesTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(8);
+
+/* ---------------------------------------------- what makes it feel native */
+
+// Haptics travel through the bridge, so a press in the shell is a press the
+// Taptic Engine feels. Nothing visual depends on this, which is why it has to
+// be asserted rather than looked at.
+check("pressing a dock item asks the native side for a tap",
+  seen.includes("plugin:haptics|impact"), seen.filter((cmd) => cmd.includes("haptics")).join(",") || "never asked");
+check("the shell reports the theme for the status bar",
+  seen.includes("plugin:comet|status_bar"),
+  seen.filter((cmd) => cmd.includes("status_bar")).join(",") || "never asked");
+
+
+// The glass bar is a scrolled state, not a permanent slab: at the top of the
+// workspace there is no bar background at all.
+const rootElement = document.documentElement;
+const area = document.querySelector(".workspace-scroll");
+check("the bar starts transparent", !rootElement.classList.contains("m-scrolled"));
+if (area) {
+  area.scrollTop = 120;
+  area.dispatchEvent(new window.Event("scroll", { bubbles: false }));
+  await settle(3);
+}
+check("scrolling turns the bar to glass", rootElement.classList.contains("m-scrolled"));
+
+// Back is offered exactly when there is somewhere to go: a live-looking button
+// that is dead is worse than no button. The app's own history button is the
+// reference — if it is disabled and no document is open, there is no back.
+const appBackAnchor = document.querySelector('[aria-label="Go back"]');
+const shellBackAnchor = document.querySelector(".m-bar-back");
+const documentOpenNow = Boolean(document.querySelector(".document-heading h2"));
+const backShouldHide = Boolean(appBackAnchor?.disabled) && !documentOpenNow;
+check("back is offered exactly when there is somewhere to go",
+  shellBackAnchor?.hidden === backShouldHide,
+  `hidden=${shellBackAnchor?.hidden} appBackDisabled=${appBackAnchor?.disabled} document=${documentOpenNow}`);
+
+/* ------------------------------------------------------------ the anchors */
+
+const anchors = {
+  files: () => [...document.querySelectorAll(".sidebar .nav-item")].find((item) => item.textContent.trim().startsWith("All files")),
+  calendar: () => [...document.querySelectorAll(".sidebar .nav-item")].find((item) => item.textContent.trim().startsWith("Calendar")),
+  settings: () => [...document.querySelectorAll(".sidebar .nav-item")].find((item) => item.textContent.trim().startsWith("Settings")),
+  search: () => document.querySelector('[aria-label="Search notes"]'),
+  create: () => document.querySelector('[aria-label="Add file or upload"]'),
+  workspace: () => document.querySelector(".workspace-picker"),
+  back: () => document.querySelector('[aria-label="Go back"]')
+};
+for (const [name, resolve] of Object.entries(anchors)) {
+  check(`the ${name} anchor exists in the app`, Boolean(resolve()));
+}
+
+/* --------------------------------------------------------------- the menu */
+
+document.querySelector(".m-create").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(6);
+const createMenu = document.querySelector(".context-menu");
+check("New opens the app's own create menu", Boolean(createMenu));
+check("the create menu offers the app's items",
+  Boolean(createMenu) && [...createMenu.querySelectorAll("button")].length >= 3,
+  createMenu ? String(createMenu.querySelectorAll("button").length) : "no menu");
+document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+await settle(4);
+check("Escape closes the create menu", !document.querySelector(".context-menu"));
+
+/* --------------------------------------------------------- long press */
+
+function touch(element, type, point) {
+  const event = new window.Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "touches", { value: type === "touchend" ? [] : [point] });
+  element.dispatchEvent(event);
+}
+
+const row = welcomeRow();
+check("the row for a known file is on screen", Boolean(row));
+if (row) {
+  touch(row.querySelector(".workspace-entry-open"), "touchstart", { clientX: 20, clientY: 40 });
+  await new Promise((resolve) => setTimeout(resolve, 620));
+  await settle(4);
+  const menu = document.querySelector(".context-menu");
+  check("a long press opens that row's menu", Boolean(menu));
+  check("the menu belongs to the row that was pressed",
+    Boolean(menu) && (menu.textContent ?? "").includes("Welcome.md"),
+    menu ? (menu.textContent ?? "").slice(0, 60) : "no menu");
+  check("only one menu is open", document.querySelectorAll(".context-menu").length === 1);
+  document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await settle(4);
+  check("Escape closes it", !document.querySelector(".context-menu"));
+}
+
+/* ------------------------------------------------------ the header title */
+
+// A long press ends with the finger lifting, which fires a click. That click
+// must not also open the file — it is the shell's one-shot guard, so this is
+// the assertion that the guard exists and is spent.
+row?.querySelector(".workspace-entry-open").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(8);
+check("the click that follows a long press does not open the file", !document.querySelector(".note-card"));
+
+row?.querySelector(".workspace-entry-open").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(12);
+const headerTitle = document.querySelector(".m-bar-title strong")?.textContent ?? "";
+check("opening a note puts its name in the header", headerTitle === "Welcome", headerTitle);
+check("the note itself rendered", Boolean(document.querySelector(".note-card")));
+check("the file surface gets out of the way while reading",
+  document.querySelector(".m-files")?.dataset.away === "true" &&
+  !document.documentElement.classList.contains("m-files-active"));
+check("the document's own heading names the note at title size",
+  document.querySelector(".document-heading h2")?.textContent?.trim() === "Welcome",
+  document.querySelector(".document-heading h2")?.textContent ?? "none");
+check("the back button appeared", document.querySelector(".m-bar-back")?.hidden === false);
+
+// And it does something: the app's own history, walked from the shell.
+document.querySelector(".m-bar-back").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(10);
+check("back returns to the file list",
+  !document.querySelector(".note-card") && document.querySelectorAll(".workspace-entry").length === files.length,
+  `entries=${document.querySelectorAll(".workspace-entry").length}`);
+
+/* ---------------------------------------------------------------- the CSS */
+
+const css = readFileSync(cssPath, "utf8");
+check("the stylesheet is scoped to the mobile class", !/(^|\n)\s*(html|body|\.app-shell)\s*\{/.test(css));
+check("the desktop top bar is hidden", /\.app-topbar\s*\{\s*display:\s*none/.test(css));
+check("every declaration block is closed", (css.match(/\{/g) ?? []).length === (css.match(/\}/g) ?? []).length);
+check("menus become inset sheets",
+  /\.context-menu\s*\{[^}]*right:\s*8px\s*!important[^}]*border-radius:\s*26px/.test(css));
+check("dialogs become bottom sheets", /\.modal-backdrop\s*\{[^}]*place-items:\s*end center/.test(css));
+check("inputs avoid the iOS focus zoom", /font-size:\s*16px/.test(css));
+
+// The black screen: the page has to paint its own background, or every frame
+// where Comet's shell does not cover the viewport shows the web view's own
+// black backing (which is what the workspace picker used to leave behind).
+check("the page paints its own background",
+  /html\.comet-mobile,\s*\n?html\.comet-mobile body,\s*\n?html\.comet-mobile #root \{[^}]*background:\s*var\(--canvas\)/.test(css));
+
+// A full-screen blurred layer is what makes WKWebView lose its backing store
+// after a native sheet is dismissed. The scrim and the backdrop must not blur.
+const veil = (selector) => {
+  const match = css.match(new RegExp(`html\\.comet-mobile ${selector.replace(".", "\\.")}\\s*\\{[^}]*\\}`));
+  return match ? match[0] : "";
+};
+check("the full-screen veils do not blur",
+  /backdrop-filter:\s*none/.test(veil(".modal-backdrop")),
+  veil(".modal-backdrop").slice(0, 60));
+
+// No sidebar, anywhere: not drawn, not sliding in, not peeking.
+check("the sidebar is never drawn",
+  /html\.comet-mobile \.sidebar,[^{]*\{[^}]*display:\s*none\s*!important/.test(css));
+check("the sidebar's menu still becomes a sheet",
+  /\.sidebar:has\(\.vault-dropdown\)\s*\{[^}]*border-radius:\s*26px/.test(css));
+
+// The glass is only worth having if it is actually glass, and only safe where
+// it is small.
+const dockRule = css.match(/html\.comet-mobile \.m-dock \{[^}]*\}/)?.[0] ?? "";
+check("the dock is a floating glass capsule",
+  /backdrop-filter:\s*saturate\([^)]*\)\s*blur\(\d+px\)/.test(dockRule) &&
+  /border-radius:\s*2[0-9]px/.test(dockRule) &&
+  /position:\s*fixed/.test(dockRule),
+  dockRule.slice(0, 80));
+check("the glass has a fallback where it is not supported", /@supports not/.test(css));
+
+// The large title is Comet's own heading, restyled — not an element of ours
+// floating over the app where it could land on the hero or the toolbar.
+const headingRule = css.match(/html\.comet-mobile \.document-heading h2 \{[^}]*\}/)?.[0] ?? "";
+check("the document heading is a large title",
+  /font-size:\s*(2[4-9]|3\d)px/.test(headingRule) && /font-weight:\s*[78]00/.test(headingRule),
+  headingRule.slice(0, 80));
+check("no injected element is positioned over the content",
+  !/\.m-large-title/.test(css));
+
+// The surface animates, and says so in CSS rather than in JS timers.
+check("items arrive with a staggered animation",
+  /@keyframes m-item-in/.test(css) &&
+  /\.m-files\[data-anim="in"\] \.m-tile,[^{]*\{[^}]*animation:[^}]*animation-delay:\s*calc\(var\(--i/.test(css));
+check("the hero moves with the scroll", /--m-hero-shift/.test(css) && /--m-hero-fade/.test(css));
+check("the dock lens is one moving element", /\.m-dock-lens\s*\{[^}]*transition:\s*transform/.test(css));
+const reduceBlock = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)", css.lastIndexOf("/* ---")));
+check("every animation is switched off for reduced motion",
+  /m-files\[data-anim="in"\] \.m-tile/.test(css.slice(css.lastIndexOf("@media (prefers-reduced-motion"))) &&
+  /\.m-files-top/.test(css.slice(css.lastIndexOf("@media (prefers-reduced-motion"))),
+  "the reduced-motion block must name the surface");
+void reduceBlock;
+const layers = [".modal-backdrop", ".context-menu", ".m-library-backdrop", ".m-library"].map((selector) => {
+  const match = css.match(new RegExp(`html\\.comet-mobile ${selector.replace(".", "\\.")} \\{ z-index: (\\d+)`));
+  return match ? Number(match[1]) : NaN;
+});
+check("the layers stack in order", layers.every((value, index) => index === 0 || value > layers[index - 1]), layers.join(" < "));
+
+/* ------------------------------------------------------------------ done */
+
+root.unmount?.();
+server.close();
+dom.window.close();
+rmSync(work, { recursive: true, force: true });
+delete globalThis.IS_REACT_ACT_ENVIRONMENT;
+
+// One machine-readable line, so CI can surface the outcome as an annotation
+// even when the run's log is not reachable.
+const total = results.length;
+const summary = failures === 0
+  ? `mobile shell: ${total} checks, all passed`
+  : `mobile shell: ${total - failures}/${total} checks passed, ${failures} failed`;
+console.log(`\n${summary}`);
+process.exit(failures === 0 ? 0 : 1);

@@ -1,0 +1,161 @@
+name: iOS
+
+# Builds Comet for iPhone and iPad as an unsigned .ipa, attaches it to a draft
+# release, and keeps it as a build artifact. No Apple account, no certificates,
+# no TestFlight: the sideloading tool signs the bundle on the device itself.
+#
+# The release is a *draft* on purpose, so nothing is announced by building, and
+# it is published only when someone publishes it from the Releases page.
+
+on:
+  workflow_dispatch:
+    inputs:
+      comet_ref:
+        description: "Comet commit, tag or branch to build (blank: the pinned commit)"
+        required: false
+        default: ""
+  push:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    name: Unsigned IPA
+    # Either image produces the same arm64 iPhone build. Both fleets have been
+    # seen leaving jobs in the queue with no runner ever assigned and then
+    # cancelling them after fifteen minutes; when that happens to one, the other
+    # is the retry.
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      # A manual run builds the branch it was started from. Without an explicit
+      # ref, workflow_dispatch checks out the default branch instead.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Fetch and build Comet
+        env:
+          COMET_REF: ${{ github.event.inputs.comet_ref }}
+        run: scripts/prepare.sh
+
+      - name: Check the Tauri bridge against the real @tauri-apps packages
+        run: |
+          node tools/test-shim.mjs 2>&1 | tee .shim-test.log
+          grep -E "^bridge: " .shim-test.log | while IFS= read -r line; do echo "::notice::$line"; done
+
+      # The mobile shell is proven against Comet's own App.tsx, not a mock, so
+      # this runs the real UI in jsdom and drives it through the buttons the
+      # shell presses. It catches a renamed class or a moved anchor before the
+      # IPA is built, which is the only way to notice from CI: nothing here can
+      # see the screen.
+      - name: Check the mobile shell against the real Comet UI
+        run: |
+          node tools/test-mobile.mjs 2>&1 | tee .mobile-test.log
+          grep -E "^mobile shell: " .mobile-test.log | while IFS= read -r line; do echo "::notice::$line"; done
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build the unsigned IPA
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -o pipefail
+          scripts/build-ipa.sh --skip-prepare 2>&1 | tee .build.log
+
+      - name: Check what ended up in the IPA
+        run: |
+          scripts/verify-ipa.sh out/Comet-unsigned.ipa | tee .verify.log
+          sed 's/^/::notice::/' .verify.log
+
+      # A draft release makes the file downloadable as an .ipa rather than as
+      # GitHub's zipped artifact. It moves tag to tag (ios-latest), so old
+      # builds are replaced by newer ones instead of piling up.
+      - name: Attach the IPA to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+          RUN: ${{ github.run_number }}
+        run: |
+          VERSION="$(cat .comet-version 2>/dev/null || echo 0.1.0)"
+          COMET="$(cat .comet-ref 2>/dev/null || echo unknown)"
+          TAG="ios-latest"
+
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+
+          {
+            echo "Unsigned Comet ${VERSION} for iOS, built from this repository."
+            echo
+            echo "- Comet commit: \`${COMET}\`"
+            echo "- Shell commit: \`${SHA}\`"
+            echo "- Build: ${RUN}"
+            echo
+            echo "Download \`Comet-unsigned.ipa\` and sign it with a sideloading tool"
+            echo "(Sideloadly, AltStore/SideStore) or Xcode. It carries no signing"
+            echo "material of its own."
+            echo
+            echo '```'
+            cat .verify.log
+            echo '```'
+          } > .release-notes.md
+
+          gh release create "$TAG" \
+            out/Comet-unsigned.ipa \
+            --draft \
+            --target "$SHA" \
+            --title "Comet for iOS (latest build)" \
+            --notes-file .release-notes.md
+
+          gh release view "$TAG" --json assets,isDraft,url --jq '"draft: \(.isDraft)  file: \(.assets[0].name)  \(.url)"' \
+            | while IFS= read -r line; do echo "::notice::$line"; done
+
+      # The run's log is not always reachable from every network, so the
+      # interesting lines are re-emitted as annotations, which are.
+      - name: Surface build errors
+        if: failure()
+        run: |
+          if [ -f .build.log ]; then
+            grep -E "(error|fatal error): " .build.log | sort -u | head -30 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            echo "::error::--- last lines of the build ---"
+            tail -20 .build.log | while IFS= read -r line; do echo "::error::$line"; done
+          fi
+
+      - name: Summarise
+        if: success()
+        run: |
+          {
+            echo "### Comet for iOS"
+            echo ""
+            echo "- Comet: \`$(cat .comet-ref 2>/dev/null || echo unknown)\`"
+            echo "- Version: \`$(cat .comet-version 2>/dev/null || echo 0.1.0)\` (build ${{ github.run_number }})"
+            echo "- Size: $(du -h out/Comet-unsigned.ipa | cut -f1)"
+            echo "- Mobile shell: \`$(grep -hE "^mobile shell: " .mobile-test.log 2>/dev/null || echo "not run")\`"
+            echo "- Bridge: \`$(grep -hE "^bridge: " .shim-test.log 2>/dev/null || echo "not run")\`"
+            echo ""
+            echo "The IPA is attached to the draft release \`ios-latest\` as well as"
+            echo "the artifact below; the release is the one that downloads as an"
+            echo ".ipa, because artifacts are always zipped."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Comet-unsigned-ipa
+          path: out/Comet-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
