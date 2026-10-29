@@ -59,7 +59,9 @@ function check(name, condition, detail) {
 const files = [
   { name: "Welcome.md", path: "/vault/Welcome.md", kind: "file" },
   { name: "Ideas.md", path: "/vault/Ideas.md", kind: "file" },
-  { name: "Archive", path: "/vault/Archive", kind: "folder" }
+  { name: "holiday.png", path: "/vault/holiday.png", kind: "file" },
+  { name: "Archive", path: "/vault/Archive", kind: "folder" },
+  { name: "Projects", path: "/vault/Projects", kind: "folder" }
 ];
 
 const replies = {
@@ -295,6 +297,79 @@ function welcomeRow() {
     .find((entry) => entry.querySelector('[aria-label="More options for Welcome.md"]')) ?? null;
 }
 
+/* ------------------------------------------------------- the file surface */
+
+const surface = document.querySelector(".m-files");
+check("the shell draws its own file surface", Boolean(surface) && surface.dataset.away === "false");
+check("the app's own list is put away while it shows",
+  document.documentElement.classList.contains("m-files-active"));
+check("its hero names the view", surface?.querySelector(".m-files-title")?.textContent === "All files",
+  surface?.querySelector(".m-files-title")?.textContent ?? "none");
+check("the hero counts what is there", /5 items/.test(surface?.querySelector(".m-files-sub")?.textContent ?? ""),
+  surface?.querySelector(".m-files-sub")?.textContent ?? "none");
+check("there is nothing to go up to at the top of a workspace",
+  surface?.querySelector(".m-files-up")?.hidden === true);
+
+const tiles = [...(surface?.querySelectorAll(".m-tile") ?? [])];
+const surfaceRows = [...(surface?.querySelectorAll(".m-file") ?? [])];
+check("folders are tiles, and folders come first",
+  tiles.map((tile) => tile.dataset.path).join(",") === "/vault/Archive,/vault/Projects",
+  tiles.map((tile) => tile.dataset.path).join(",") || "none");
+check("files are rows", surfaceRows.map((row) => row.dataset.path).join(",") ===
+  "/vault/Ideas.md,/vault/Welcome.md,/vault/holiday.png",
+  surfaceRows.map((row) => row.dataset.path).join(",") || "none");
+check("the sections are Folders, Notes and Media",
+  [...surface.querySelectorAll(".m-files-section h2")].map((h) => h.textContent).join(",") === "Folders,Notes,Media",
+  [...surface.querySelectorAll(".m-files-section h2")].map((h) => h.textContent).join(","));
+
+// Filters are a view over the same list; the app is not told anything.
+[...surface.querySelectorAll(".m-chip")].find((chip) => chip.dataset.filter === "folders")
+  .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+check("a filter narrows the surface", surface.querySelectorAll(".m-tile").length === 2 && surface.querySelectorAll(".m-file").length === 0);
+check("and says which one is on",
+  surface.querySelector('.m-chip[data-filter="folders"]')?.getAttribute("aria-selected") === "true");
+[...surface.querySelectorAll(".m-chip")].find((chip) => chip.dataset.filter === "all")
+  .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(4);
+
+// Walking into a folder and back out, through the surface only.
+[...surface.querySelectorAll(".m-tile")].find((tile) => tile.dataset.path === "/vault/Archive")
+  .querySelector(".m-tile-open").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(12);
+check("a tile walks into the folder", surface.querySelector(".m-files-title")?.textContent === "Archive",
+  surface.querySelector(".m-files-title")?.textContent ?? "none");
+check("inside a folder there is a way home", surface.querySelector(".m-files-up")?.hidden === false);
+surface.querySelector(".m-files-up").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await settle(12);
+check("and it comes home", surface.querySelector(".m-files-title")?.textContent === "All files",
+  surface.querySelector(".m-files-title")?.textContent ?? "none");
+
+// Long press on a row the shell drew: it has to find the app's row and open
+// that row's own menu.
+function drawnRow(path) {
+  return [...surface.querySelectorAll(".m-file")].find((row) => row.dataset.path === path) ?? null;
+}
+const drawn = drawnRow("/vault/Ideas.md");
+check("a drawn row stands for a file", Boolean(drawn));
+if (drawn) {
+  const start = new window.Event("touchstart", { bubbles: true, cancelable: true });
+  Object.defineProperty(start, "touches", { value: [{ clientX: 30, clientY: 50 }] });
+  drawn.querySelector(".m-file-open").dispatchEvent(start);
+  await new Promise((resolve) => setTimeout(resolve, 560));
+  await settle(4);
+  check("long-pressing a drawn row opens that file's menu",
+    (document.querySelector(".context-menu")?.textContent ?? "").includes("Ideas.md"),
+    document.querySelector(".context-menu")?.textContent?.slice(0, 40) ?? "no menu");
+  document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await settle(4);
+
+  // The finger lifts, which fires a click. The shell's guard eats that one —
+  // so spend it here, or the next click in this file would disappear into it.
+  document.body.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await settle(2);
+}
+
 /* ------------------------------------------------------- driving the tabs */
 
 const filesTab = document.querySelector('.m-dock-item[data-tab="files"]');
@@ -307,6 +382,9 @@ check("Calendar reaches the app's own Calendar view",
   (document.querySelector(".primary-nav .nav-item.active")?.textContent ?? "").includes("Calendar"),
   document.querySelector(".primary-nav .nav-item.active")?.textContent ?? "none");
 check("the Calendar tab is marked current", calendarTab.getAttribute("aria-current") === "page");
+check("the lens slides to the tab that is current",
+  /translate3d\(2\d\d%, 0, 0\)/.test(document.querySelector(".m-dock-lens")?.style.transform ?? ""),
+  document.querySelector(".m-dock-lens")?.style.transform ?? "none");
 
 filesTab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 await settle(10);
@@ -488,6 +566,9 @@ await settle(12);
 const headerTitle = document.querySelector(".m-bar-title strong")?.textContent ?? "";
 check("opening a note puts its name in the header", headerTitle === "Welcome", headerTitle);
 check("the note itself rendered", Boolean(document.querySelector(".note-card")));
+check("the file surface gets out of the way while reading",
+  document.querySelector(".m-files")?.dataset.away === "true" &&
+  !document.documentElement.classList.contains("m-files-active"));
 check("the document's own heading names the note at title size",
   document.querySelector(".document-heading h2")?.textContent?.trim() === "Welcome",
   document.querySelector(".document-heading h2")?.textContent ?? "none");
@@ -551,6 +632,19 @@ check("the document heading is a large title",
   headingRule.slice(0, 80));
 check("no injected element is positioned over the content",
   !/\.m-large-title/.test(css));
+
+// The surface animates, and says so in CSS rather than in JS timers.
+check("items arrive with a staggered animation",
+  /@keyframes m-item-in/.test(css) &&
+  /\.m-files\[data-anim="in"\] \.m-tile,[^{]*\{[^}]*animation:[^}]*animation-delay:\s*calc\(var\(--i/.test(css));
+check("the hero moves with the scroll", /--m-hero-shift/.test(css) && /--m-hero-fade/.test(css));
+check("the dock lens is one moving element", /\.m-dock-lens\s*\{[^}]*transition:\s*transform/.test(css));
+const reduceBlock = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)", css.lastIndexOf("/* ---")));
+check("every animation is switched off for reduced motion",
+  /m-files\[data-anim="in"\] \.m-tile/.test(css.slice(css.lastIndexOf("@media (prefers-reduced-motion"))) &&
+  /\.m-files-top/.test(css.slice(css.lastIndexOf("@media (prefers-reduced-motion"))),
+  "the reduced-motion block must name the surface");
+void reduceBlock;
 const layers = [".modal-backdrop", ".context-menu", ".m-library-backdrop", ".m-library"].map((selector) => {
   const match = css.match(new RegExp(`html\\.comet-mobile ${selector.replace(".", "\\.")} \\{ z-index: (\\d+)`));
   return match ? Number(match[1]) : NaN;
