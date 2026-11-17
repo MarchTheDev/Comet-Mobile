@@ -35,7 +35,7 @@ struct CalendarEvent: Codable, Identifiable, Hashable {
     var time: String = ""
     var notes: String = ""
 
-    var date: Date? { CalendarMath.date(fromKey: dateKey) }
+    var date: Date? { CometDate.date(fromKey: dateKey) }
     var hasTime: Bool { !time.isEmpty }
 }
 
