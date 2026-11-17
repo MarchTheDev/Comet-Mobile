@@ -55,7 +55,7 @@ struct RootView: View {
                 .environmentObject(model)
                 .environment(\.comet, theme)
                 .environment(\.type, type)
-                .presentationDetents([.height(430), .large])
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.hidden)
                 .presentationCornerRadius(34)
                 .presentationBackground(.clear)
