@@ -35,7 +35,7 @@ happens.
 struct ChangeRecord {
     let id: String          // stable, sortable
     let at: Date            // when the app saw it happen
-    let device: String      // "Aurora-iPhone", stable per install
+    let device: String      // "Milan-iPhone", stable per install
     let action: ChangeAction// create, update, delete, move, rename, ...
     let path: String        // where it happened
     let previousPath: String?

@@ -193,3 +193,6 @@ Comet is GPL-3.0, and so is this app — see [`LICENSE`](LICENSE). The app conta
 no Comet code; it reads and writes the formats of
 [MarchTheDev/Comet](https://github.com/MarchTheDev/Comet), whose source and
 licence are the other half of the corresponding source for a build.
+
+The interface is set in **Manrope**, bundled under the SIL Open Font License
+1.1; the licence is at `CometApp/Resources/Fonts/Manrope-OFL.txt`.

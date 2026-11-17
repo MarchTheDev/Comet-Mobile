@@ -217,6 +217,14 @@
   .sw i { width: 34px; height: 34px; border-radius: 8px; display: block; border: 1px solid var(--line); }
   .sw.on i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 
+  .cover { position:relative; border-radius:12px; padding:18px 18px 20px; min-height:168px; color:#fff;
+    background: linear-gradient(150deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #12212a));
+    box-shadow: 0 5px 16px rgba(82,110,125,.14); display:flex; flex-direction:column; justify-content:flex-end; }
+  .cover .ce { font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:800; color:rgba(255,255,255,.82); }
+  .cover h2 { font-size:34px; line-height:1.06; letter-spacing:-.055em; margin:10px 0 6px; font-weight:800; }
+  .cover p { margin:0; font-size:12px; color:rgba(255,255,255,.82); }
+  .cover .cbtn { position:absolute; top:14px; right:14px; width:32px; height:32px; border-radius:8px; display:grid; place-items:center;
+    border:1px solid rgba(255,255,255,.3); background:rgba(255,255,255,.14); font-size:13px; cursor:pointer; }
   .footer { max-width: 660px; color: #5f7782; font-size: 12px; line-height: 1.7; text-align: center; }
   .footer b { color: #304653; font-weight: 800; }
 
@@ -342,54 +350,43 @@ const header = (eyebrow, title, sub) => `
   </div>`;
 
 const screenToday = () => `
-  ${header("Tuesday · 17 November", "Good evening,<br>March", "Three notes touched today, one thing at 18:30.")}
-  <div class="pad" style="margin-top:18px">
-    <div class="card" style="background: linear-gradient(150deg, color-mix(in srgb, var(--accent) 22%, var(--surface)), var(--surface) 62%);">
-      <div class="row between">
-        <div>
-          <div class="label">Today</div>
-          <div style="font-size:26px;font-weight:640;letter-spacing:-.03em;margin-top:6px">17</div>
-          <div class="small" style="margin-top:2px">November 2026 · week 47</div>
-        </div>
-        <div style="text-align:right">
-          <div class="small">Sunset 16:52</div>
-          <div class="muted">Milan</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:7px;margin-top:16px;flex-wrap:wrap">
-        <span class="chip">3 pinned</span><span class="chip">7 unread</span><span class="chip">2 boards</span>
-      </div>
+  <div class="pad" style="padding-top:12px">
+    <div class="cover">
+      <div class="cbtn" onclick="openScreen('files')">⧉</div>
+      <div class="ce">◉ ${new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' }).toUpperCase()}</div>
+      <h2>Good evening,<br>March</h2>
+      <p>Comet · three notes touched today, one thing at 18:30.</p>
     </div>
   </div>
 
-  <div class="pad" style="margin-top:22px">
-    <div class="row between"><span class="label">Pinned</span><span class="muted">see all</span></div>
-    <div class="stack" style="margin-top:11px">
+  <div class="pad" style="margin-top:18px">
+    <div class="row between"><span class="label">Pinned</span><span class="muted">2</span></div>
+    <div class="stack" style="margin-top:9px">
       ${noteCard("Aurora", "Tonight's sky is meant to be clear — worth the walk to the canal.", "journal/aurora", "12 min ago", "accent")}
       ${noteCard("Release checklist", "Sign the build, check the release notes, tag it, ship it.", "work/release", "1 h ago", "accent2")}
     </div>
   </div>
 
-  <div class="pad" style="margin-top:22px">
+  <div class="pad" style="margin-top:18px">
     <span class="label">Later today</span>
-    <div class="card tight" style="margin-top:11px">
+    <div class="card tight" style="margin-top:9px">
       ${eventRow("18:30", "Dinner with Elena", "Trattoria del Ponte", "accent")}
       ${eventRow("21:00", "Write for an hour", "No phone on the desk", "accent2")}
     </div>
   </div>
 
-  <div class="pad" style="margin-top:22px">
+  <div class="pad" style="margin-top:18px">
     <div class="row between"><span class="label">Reading</span><span class="muted">7 unread</span></div>
-    <div class="card tight" style="margin-top:11px">
+    <div class="card tight" style="margin-top:9px">
       ${feedRow("The quiet return of the personal site", "Hacker News · 2 h")}
       ${feedRow("Why paper maps still matter", "Aeon · yesterday")}
       ${feedRow("Notes on a smaller phone", "Daring Fireball · 2 d")}
     </div>
   </div>
 
-  <div class="pad" style="margin-top:22px">
+  <div class="pad" style="margin-top:18px">
     <span class="label">Recently touched</span>
-    <div class="card tight" style="margin-top:11px">
+    <div class="card tight" style="margin-top:9px">
       ${fileRow("◫","Night drive","Whiteboard · edited 8 min ago")}
       ${fileRow("▤","Field notes","Folder · 6 files · yesterday")}
       ${fileRow("◍","Sourdough.comet-todo","Board · 4 of 9 done · 2 d")}
