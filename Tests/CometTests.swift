@@ -417,7 +417,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testProfileSurvivesUnknownFields() throws {
         var profile = WorkspaceProfile()
-        profile.tags["aurora.md"] = ItemMeta(tags: ["night"], pinned: true)
+        profile.items["aurora.md"] = ItemMeta(tags: ["night"], pinned: true)
         profile.order[""] = ["aurora.md"]
         let data = try JSONEncoder().encode(profile)
 
@@ -426,8 +426,8 @@ final class WorkspaceTests: XCTestCase {
         let patched = try JSONSerialization.data(withJSONObject: json)
 
         let decoded = try JSONDecoder().decode(WorkspaceProfile.self, from: patched)
-        XCTAssertEqual(decoded.tags["aurora.md"]?.tags, ["night"])
-        XCTAssertTrue(decoded.meta("aurora.md").pinned)
+        XCTAssertEqual(decoded.items["aurora.md"]?.tags, ["night"])
+        XCTAssertTrue(decoded.meta(for: "aurora.md").pinned)
     }
 
     func testJournalRecordsFacts() {
