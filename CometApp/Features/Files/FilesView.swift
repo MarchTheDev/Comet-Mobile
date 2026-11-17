@@ -327,14 +327,27 @@ struct FilesView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            EmptyState(icon: filter == .all ? "folder" : "line.3.horizontal.decrease.circle",
-                       title: filter == .all ? "Nothing here yet" : "Nothing matches",
-                       message: filter == .all
-                        ? "This folder is empty. Make a note, start a board, or import something."
-                        : "Try another filter, or clear the tag.")
-            PrimaryAction(title: "New item", icon: "plus") {
-                model.showingNewItem = true
+        VStack(spacing: 12) {
+            EmptyState(icon: !model.isWorkspaceReachable ? "folder.badge.questionmark" : (filter == .all ? "folder" : "line.3.horizontal.decrease.circle"),
+                       title: !model.isWorkspaceReachable ? "No folder open" : (filter == .all ? "Nothing here yet" : "Nothing matches"),
+                       message: !model.isWorkspaceReachable
+                        ? "Comet needs a folder it can write to. Open one, or let Comet make its own again."
+                        : (filter == .all
+                            ? "This folder is empty. Make a note, start a board, or import something."
+                            : "Try another filter, or clear the tag."))
+            HStack(spacing: 8) {
+                if model.isWorkspaceReachable {
+                    PrimaryAction(title: "New item", icon: "plus") {
+                        model.showingNewItem = true
+                    }
+                } else {
+                    PrimaryAction(title: "Choose folder", icon: "folder") {
+                        model.showingWorkspacePicker = true
+                    }
+                    SoftButton(title: "Repair", icon: "wrench.and.screwdriver") {
+                        _ = model.repairWorkspace()
+                    }
+                }
             }
         }
         .padding(.vertical, 10)
