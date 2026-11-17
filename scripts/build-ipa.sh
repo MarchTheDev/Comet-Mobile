@@ -1,116 +1,61 @@
 #!/usr/bin/env bash
+# Build Comet for iOS as an unsigned .ipa.
 #
-# Build an unsigned Comet.ipa.
+#   scripts/build-ipa.sh            # generate the project, compile, package
+#   scripts/build-ipa.sh --archive  # also zip the dSYMs
 #
-# "Unsigned" means exactly that: no Apple developer identity, no provisioning
-# profile, no TestFlight. Sideloading tools (Sideloadly, AltStore, SideStore,
-# Xcode) sign the bundle themselves with whatever certificate you have, which is
-# the only way to install an IPA without an App Store review or a paid account.
-#
-#   scripts/build-ipa.sh                # prepare Comet, then build
-#   scripts/build-ipa.sh --skip-prepare  # build what is already staged
-#
-# Output: out/Comet-unsigned.ipa
-#
+# Requires macOS with Xcode and XcodeGen (brew install xcodegen).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+cd "$(dirname "$0")/.."
 
-SKIP_PREPARE=0
-for argument in "$@"; do
-  case "$argument" in
-    --skip-prepare) SKIP_PREPARE=1 ;;
-    *) echo "unknown option: $argument" >&2; exit 2 ;;
-  esac
-done
+BUILD_NUMBER="${BUILD_NUMBER:-1}"
+OUT="out"
+DERIVED="build"
 
-log() { printf '\033[1m==>\033[0m %s\n' "$*"; }
-
-if [ "$SKIP_PREPARE" -eq 0 ]; then
-  "$ROOT/scripts/prepare.sh"
-fi
-
-if [ ! -f "$ROOT/app/Resources/www/index.html" ]; then
-  echo "error: the Comet page is not staged yet; run scripts/prepare.sh first" >&2
+if ! command -v xcodegen >/dev/null 2>&1; then
+  echo "xcodegen is required: brew install xcodegen" >&2
   exit 1
 fi
 
-VERSION="$(cat "$ROOT/.comet-version" 2>/dev/null || echo 0.1.0)"
-BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%Y%m%d%H%M)}"
-# Sideloading tools derive their own identifier, but two apps signed under the
-# same one cannot both be installed, so the build allows choosing it.
-BUNDLE_ID="${BUNDLE_ID:-com.march.comet}"
+echo "==> generating the Xcode project"
+xcodegen generate >/dev/null
 
-if ! command -v xcodebuild >/dev/null; then
-  echo "error: xcodebuild is missing. iOS apps can only be built on macOS with Xcode." >&2
-  exit 1
-fi
-if ! command -v xcodegen >/dev/null; then
-  log "Installing XcodeGen (needed to write the .xcodeproj)"
-  if command -v brew >/dev/null; then
-    brew install xcodegen
-  else
-    echo "error: install XcodeGen first: https://github.com/yonaskolb/XcodeGen" >&2
-    exit 1
-  fi
-fi
-
-log "Toolchain"
-xcodebuild -version
-xcodegen --version
-
-log "Generating CometMobile.xcodeproj"
-rm -rf CometMobile.xcodeproj
-xcodegen generate --spec project.yml
-
-# Fail with something readable if the project came out unreadable, rather than
-# letting xcodebuild report only that it could not open it.
-if [ ! -f CometMobile.xcodeproj/project.pbxproj ]; then
-  echo "error: xcodegen did not write project.pbxproj" >&2
-  exit 1
-fi
-head -c 400 CometMobile.xcodeproj/project.pbxproj
-echo
-xcodebuild -list -project CometMobile.xcodeproj
-
-log "Building Comet $VERSION ($BUILD_NUMBER) for iOS arm64"
+echo "==> building for iphoneos (unsigned)"
+mkdir -p "$OUT" "$DERIVED"
+set -o pipefail
 xcodebuild \
   -project CometMobile.xcodeproj \
   -scheme Comet \
   -configuration Release \
   -sdk iphoneos \
+  -derivedDataPath "$DERIVED" \
   -destination 'generic/platform=iOS' \
-  -derivedDataPath build \
-  -quiet \
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY="" \
-  DEVELOPMENT_TEAM="" \
-  ONLY_ACTIVE_ARCH=NO \
-  MARKETING_VERSION="$VERSION" \
-  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-  PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID"
+  build 2>&1 | tee .xcodebuild.log | grep -E "^(error|warning:|note:|\*\* )" || true
 
-APP="$ROOT/build/Build/Products/Release-iphoneos/Comet.app"
+APP="$DERIVED/Build/Products/Release-iphoneos/Comet.app"
 if [ ! -d "$APP" ]; then
-  echo "error: the build finished without producing $APP" >&2
-  exit 1
-fi
-if [ ! -f "$APP/Comet" ]; then
-  echo "error: $APP has no executable" >&2
+  echo "build did not produce Comet.app — see .xcodebuild.log" >&2
+  tail -40 .xcodebuild.log >&2
   exit 1
 fi
 
-# An IPA is a zip with a single top-level "Payload" directory.
-log "Packaging the IPA"
-rm -rf "$ROOT/out/Payload" "$ROOT/out/Comet-unsigned.ipa"
-mkdir -p "$ROOT/out/Payload"
-ditto "$APP" "$ROOT/out/Payload/Comet.app"
-(cd "$ROOT/out" && ditto -c -k --sequesterRsrc --keepParent Payload "Comet-unsigned.ipa")
+echo "==> packaging"
+rm -rf "$OUT/Payload" "$OUT/Comet.app" "$OUT/Comet-unsigned.ipa"
+mkdir -p "$OUT/Payload"
+cp -R "$APP" "$OUT/Payload/Comet.app"
+(cd "$OUT" && zip -qry "Comet-unsigned.ipa" Payload)
+rm -rf "$OUT/Payload"
 
-IPA="$ROOT/out/Comet-unsigned.ipa"
-log "Built $IPA ($(du -h "$IPA" | cut -f1))"
-echo
-echo "Install it with Sideloadly, AltStore/SideStore, or Xcode's Devices window."
-echo "The bundle identifier is $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" 2>/dev/null || echo "$BUNDLE_ID")."
+if [ "${1:-}" = "--archive" ] && compgen -G "$DERIVED/Build/Products/Release-iphoneos/*.dSYM" >/dev/null; then
+  (cd "$DERIVED/Build/Products/Release-iphoneos" && zip -qry "$OLDPWD/$OUT/Comet-dSYMs.zip" ./*.dSYM)
+fi
+
+size=$(du -h "$OUT/Comet-unsigned.ipa" | cut -f1)
+echo "ipa: $OUT/Comet-unsigned.ipa ($size)"
+echo "bundle: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" 2>/dev/null || echo unknown)"
+echo "executable: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist" 2>/dev/null || echo unknown)"
