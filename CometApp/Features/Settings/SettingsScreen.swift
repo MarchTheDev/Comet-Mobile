@@ -39,7 +39,7 @@ struct SettingsScreen: View {
             }
             .scrollIndicators(.hidden)
         }
-        .fileImporter(isPresented: $showingWorkspacePicker, allowedContentTypes: [.folder]) { result in
+        .fileImporter(isPresented: $showingWorkspacePicker, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
                 model.addWorkspace(url: url)
             }
@@ -50,46 +50,15 @@ struct SettingsScreen: View {
 
     private var paletteCard: some View {
         card("Appearance") {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10),
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10),
+                                GridItem(.flexible(), spacing: 10),
                                 GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(Palette.all) { palette in
-                    Button {
+                    PaletteTile(palette: palette,
+                                selected: model.settings.paletteID == palette.id) {
                         Haptics.select()
                         withAnimation(Motion.gentle) { model.settings.paletteID = palette.id }
-                    } label: {
-                        VStack(spacing: 6) {
-                            ZStack {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(colors: [palette.accentColor, palette.accentTwoColor],
-                                                       startPoint: .topLeading, endPoint: .bottomTrailing)
-                                    )
-                                    .frame(width: 40, height: 40)
-                                Circle()
-                                    .strokeBorder(palette.canvasColor.opacity(0.55), lineWidth: 4)
-                                    .frame(width: 28, height: 28)
-                                if model.settings.paletteID == palette.id {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundStyle(palette.accentColor)
-                                }
-                            }
-                            .overlay(Circle().strokeBorder(theme.ink.opacity(model.settings.paletteID == palette.id ? 0.5 : 0),
-                                                           lineWidth: 2))
-                            Text(palette.name)
-                                .font(type.label(10.5, weight: .semibold))
-                                .foregroundStyle(model.settings.paletteID == palette.id ? theme.ink : theme.tertiary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(model.settings.paletteID == palette.id ? theme.raised : Color.clear)
-                        )
                     }
-                    .buttonStyle(PressableStyle(scale: 0.95, haptic: nil))
                 }
             }
         }
@@ -278,5 +247,56 @@ struct SettingsScreen: View {
         Toggle(title, isOn: isOn)
             .font(type.prose(13.5))
             .tint(theme.accent)
+    }
+}
+
+// MARK: - Palette tile
+
+private struct PaletteTile: View {
+    let palette: Palette
+    let selected: Bool
+    let action: () -> Void
+
+    @Environment(\.comet) private var theme
+    @Environment(\.type) private var type
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                swatch
+                Text(palette.name)
+                    .font(type.label(10.5, weight: .semibold))
+                    .foregroundStyle(selected ? theme.ink : theme.tertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(selected ? theme.raised : Color.clear)
+            )
+        }
+        .buttonStyle(PressableStyle(scale: 0.95, haptic: nil))
+    }
+
+    private var swatch: some View {
+        ZStack {
+            Circle()
+                .fill(LinearGradient(colors: [palette.accentColor, palette.accentTwoColor],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: 40, height: 40)
+            Circle()
+                .strokeBorder(palette.canvasColor.opacity(0.55), lineWidth: 4)
+                .frame(width: 28, height: 28)
+            if selected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(palette.accentColor)
+            }
+        }
+        .overlay(
+            Circle().strokeBorder(theme.ink.opacity(selected ? 0.5 : 0), lineWidth: 2)
+        )
     }
 }

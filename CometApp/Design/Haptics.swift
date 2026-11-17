@@ -6,6 +6,7 @@
 //  Engine. One switch turns them off.
 //
 
+import SwiftUI
 import UIKit
 
 enum Haptics {

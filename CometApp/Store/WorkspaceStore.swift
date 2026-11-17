@@ -244,7 +244,7 @@ final class WorkspaceStore {
         } catch {
             throw WorkbookError("This item could not be renamed: \(error.localizedDescription)")
         }
-        guard let newRelative = relativePath(of: destination) else { throw WorkbookError("The rename did not complete.") }
+        guard let newRelative = self.relativePath(of: destination) else { throw WorkbookError("The rename did not complete.") }
         return newRelative
     }
 
@@ -270,7 +270,7 @@ final class WorkspaceStore {
         } catch {
             throw WorkbookError("This item could not be moved: \(error.localizedDescription)")
         }
-        guard let newRelative = relativePath(of: destination) else { throw WorkbookError("The move did not complete.") }
+        guard let newRelative = self.relativePath(of: destination) else { throw WorkbookError("The move did not complete.") }
         return newRelative
     }
 

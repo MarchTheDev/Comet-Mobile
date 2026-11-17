@@ -41,6 +41,17 @@ struct ToolsScreen: View {
 
     @State private var tool: Tool = .calculator
 
+    @ViewBuilder
+    private var toolContent: some View {
+        switch tool {
+        case .calculator: CalculatorTool()
+        case .convert: ConvertTool()
+        case .dates: DatesTool()
+        case .percent: PercentToolView()
+        case .password: PasswordTool()
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             ModuleBackground()
@@ -62,17 +73,9 @@ struct ToolsScreen: View {
                     }
                     .scrollIndicators(.hidden)
 
-                    Group {
-                        switch tool {
-                        case .calculator: CalculatorTool()
-                        case .convert: ConvertTool()
-                        case .dates: DatesTool()
-                        case .percent: PercentToolView()
-                        case .password: PasswordTool()
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 30)
+                    toolContent
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 30)
                 }
             }
             .scrollIndicators(.hidden)

@@ -135,7 +135,7 @@ struct MarkdownView: View {
         }
     }
 
-    private func paragraph(_ inlines: [Inline], size: CGFloat) -> Text {
+    private func paragraph(_ inlines: [Inline], size: CGFloat) -> some View {
         Text(attributed(inlines, size: size, weight: .regular))
             .font(type.prose(size))
             .foregroundStyle(theme.ink)
