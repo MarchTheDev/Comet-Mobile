@@ -96,6 +96,9 @@ final class CometModel: ObservableObject {
     @Published var tab: Tab = .today
     @Published var filesPath: String = ""
     @Published var openedFile: Entry?
+    /// Set by a sheet that has just made something; the shell opens it once the
+    /// sheet is gone, so the two presentations cannot fight over the screen.
+    @Published var pendingOpen: Entry?
     @Published var module: Module?
     @Published var showingOrbit = false
     @Published var showingNewItem = false
@@ -140,7 +143,10 @@ final class CometModel: ObservableObject {
         let target = workspaces.first { $0.id == lastID } ?? workspaces.first
         if let target {
             open(target)
-        } else {
+        }
+        // Whatever was remembered, if nothing is reachable now the app still
+        // has to be usable: make the workspace it keeps for itself.
+        if !store.isReachable {
             createStarterWorkspace()
         }
     }
@@ -167,21 +173,116 @@ final class CometModel: ObservableObject {
     func addWorkspace(url: URL) {
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-        guard let bookmark = WorkspaceStore.makeBookmark(for: url) else {
-            errorMessage = "Comet couldn't remember that folder."
-            return
-        }
+
+        // Open the folder that was just handed to us rather than round-tripping
+        // it through a bookmark: the URL is known to be good right now, and a
+        // bookmark is only needed for the next launch.
+        let bookmark = WorkspaceStore.makeBookmark(for: url)
         let name = url.lastPathComponent
+
         if let existing = workspaces.first(where: { $0.pathHint == url.path }) {
             open(existing)
             return
         }
-        let ref = WorkspaceRef(id: UUID().uuidString, name: name, bookmark: bookmark,
-                               pathHint: url.path, added: Date())
+
+        let ref = WorkspaceRef(id: UUID().uuidString, name: name,
+                               bookmark: bookmark ?? Data(), pathHint: url.path, added: Date())
         workspaces.append(ref)
         SettingsStore.shared.saveWorkspaces(workspaces)
-        open(ref)
+
+        store.open(url: url)
+        guard store.isReachable else {
+            errorMessage = "Comet can open that folder only while this screen is up. Copies of its files are not kept."
+            return
+        }
+        currentWorkspace = ref
+        loadProfile(for: ref)
+        entries = store.scan()
+        filesPath = ""
+        SettingsStore.shared.setLastWorkspaceID(ref.id)
         toast.show("Opened \(name)", tone: .success)
+    }
+
+    /// Confirm the folder is still there, re-bookmark it, and list it again.
+    /// The Settings screen calls this; so does anything that finds the folder
+    /// gone when it expected to write.
+    @discardableResult
+    func repairWorkspace() -> Bool {
+        guard let ref = currentWorkspace else {
+            if let first = workspaces.first { open(first) }
+            return store.isReachable
+        }
+        do {
+            try store.open(ref)
+        } catch {
+            store.close()
+        }
+        if !store.isReachable, let root = WorkspaceStore.existingFolder(at: ref.pathHint) {
+            store.open(url: root)
+        }
+        guard store.isReachable else {
+            errorMessage = "Comet cannot reach \(ref.name). Choose the folder again."
+            return false
+        }
+        if let root = store.root, let bookmark = WorkspaceStore.makeBookmark(for: root) {
+            var updated = ref
+            updated.bookmark = bookmark
+            updated.pathHint = root.path
+            replace(ref, with: updated)
+            currentWorkspace = updated
+        }
+        entries = store.scan()
+        toast.show("Workspace checked", tone: .success)
+        return true
+    }
+
+    private func replace(_ ref: WorkspaceRef, with updated: WorkspaceRef) {
+        if let index = workspaces.firstIndex(where: { $0.id == ref.id }) {
+            workspaces[index] = updated
+            SettingsStore.shared.saveWorkspaces(workspaces)
+        }
+    }
+
+    /// True when writes will land somewhere. Creates the app's own workspace in
+    /// the last resort rather than letting a create button do nothing.
+    @discardableResult
+    func ensureWorkspace() -> Bool {
+        if store.isReachable { return true }
+        if let currentWorkspace {
+            if let root = WorkspaceStore.existingFolder(at: currentWorkspace.pathHint)
+                ?? WorkspaceStore.resolve(currentWorkspace.bookmark) {
+                store.open(url: root)
+            }
+        }
+        if !store.isReachable, let first = workspaces.first {
+            if let root = WorkspaceStore.existingFolder(at: first.pathHint)
+                ?? WorkspaceStore.resolve(first.bookmark) {
+                store.open(url: root)
+                currentWorkspace = first
+                loadProfile(for: first)
+            }
+        }
+        if !store.isReachable {
+            createStarterWorkspace()
+        }
+        if store.isReachable {
+            entries = store.scan()
+            return true
+        }
+        errorMessage = "Comet could not open a folder to write to. Open one from the workspace button."
+        return false
+    }
+
+    private func loadProfile(for ref: WorkspaceRef) {
+        let key = LocalStore.workspaceKey(for: ref)
+        let store = ProfileStore(key: key)
+        store.load()
+        profileStore = store
+        profile = store.profile
+        if profile.workspaceName.isEmpty {
+            mutateProfile({ $0.workspaceName = ref.name }, record: nil)
+        }
+        sync = store.summary
     }
 
     func open(_ ref: WorkspaceRef) {
@@ -195,6 +296,17 @@ final class CometModel: ObservableObject {
                 open(fallback)
             }
             return
+        }
+        var ref = ref
+        if let root = store.root {
+            // Keep the bookmark pointing at wherever the folder really is now.
+            if let bookmark = WorkspaceStore.makeBookmark(for: root) {
+                ref.bookmark = bookmark
+            }
+            if ref.pathHint != root.path {
+                ref.pathHint = root.path
+            }
+            replace(ref, with: ref)
         }
         currentWorkspace = ref
         let key = LocalStore.workspaceKey(for: ref)
@@ -234,8 +346,21 @@ final class CometModel: ObservableObject {
     }
 
     func reload() {
+        guard store.isReachable else {
+            _ = ensureWorkspace()
+            return
+        }
         entries = store.scan()
         sync = profileStore?.summary ?? sync
+    }
+
+    // MARK: - Diagnostics
+
+    var workspacePath: String { store.root?.path ?? "No folder open" }
+    var isWorkspaceReachable: Bool { store.isReachable }
+    var hasUsableBookmark: Bool {
+        guard let currentWorkspace else { return false }
+        return WorkspaceStore.resolve(currentWorkspace.bookmark) != nil
     }
 
     var workspaceName: String {
@@ -331,6 +456,7 @@ final class CometModel: ObservableObject {
     @discardableResult
     func createNote(named name: String = "Untitled", in folder: String? = nil,
                     contents: String = "") -> Entry? {
+        guard ensureWorkspace() else { return nil }
         let target = folder ?? filesPath
         do {
             let entry = try store.createFile(folder: target, name: name.hasSuffix(".md") ? name : name + ".md",
@@ -348,6 +474,7 @@ final class CometModel: ObservableObject {
 
     @discardableResult
     func createBoard(_ kind: EntryKind, named name: String, in folder: String? = nil) -> Entry? {
+        guard ensureWorkspace() else { return nil }
         let target = folder ?? filesPath
         let suffix = kind == .whiteboard ? ".comet-whiteboard" : ".comet-todo"
         let contents = kind == .whiteboard ? WhiteboardDocument().serialized() : TodoDocument().serialized()
@@ -367,6 +494,7 @@ final class CometModel: ObservableObject {
 
     @discardableResult
     func createFolder(named name: String, in folder: String? = nil) -> Entry? {
+        guard ensureWorkspace() else { return nil }
         let target = folder ?? filesPath
         do {
             let entry = try store.createFolder(folder: target, name: name)
@@ -381,6 +509,7 @@ final class CometModel: ObservableObject {
     }
 
     func importFiles(_ urls: [URL], into folder: String? = nil) {
+        guard ensureWorkspace() else { return }
         let target = folder ?? filesPath
         var imported = 0
         for url in urls {
@@ -402,6 +531,7 @@ final class CometModel: ObservableObject {
     /// A photo dragged in from the picker becomes a file beside the note.
     @discardableResult
     func importImage(data: Data, name: String, folder: String? = nil) -> Entry? {
+        guard ensureWorkspace() else { return nil }
         let target = folder ?? filesPath
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(name)
         do {

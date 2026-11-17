@@ -95,22 +95,30 @@ struct FilesView: View {
                     }
                 } label: {
                     Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(theme.secondary)
-                        .frame(width: 38, height: 38)
-                        .background(Circle().fill(theme.surface))
-                        .overlay(Circle().strokeBorder(theme.hairline, lineWidth: 1))
+                        .frame(width: 34, height: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(theme.surface)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(theme.hairline, lineWidth: 1)
+                        )
                 }
                 Button {
                     Haptics.press()
                     model.showingNewItem = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(theme.onAccent)
-                        .frame(width: 38, height: 38)
-                        .background(Circle().fill(theme.accentGradient))
-                        .shadow(color: theme.accent.opacity(0.32), radius: 10, y: 5)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(theme.accent)
+                        )
                 }
                 .buttonStyle(PressableStyle())
                 .accessibilityLabel("New item")
@@ -142,9 +150,11 @@ struct FilesView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(theme.secondary)
                         .frame(width: 28, height: 28)
-                        .background(Circle().fill(theme.surface))
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous).fill(theme.surface)
+                        )
                 }
-                .buttonStyle(PressableStyle(scale: 0.9, haptic: nil))
+                .buttonStyle(PressableStyle(scale: 0.94, haptic: nil))
                 .accessibilityLabel("Back")
 
                 Button {
@@ -180,8 +190,14 @@ struct FilesView: View {
             .padding(.vertical, 3)
         }
         .scrollIndicators(.hidden)
-        .background(Capsule(style: .continuous).fill(theme.surface.opacity(0.7)))
-        .overlay(Capsule(style: .continuous).strokeBorder(theme.hairline, lineWidth: 1))
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(theme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(theme.hairline, lineWidth: 1)
+                )
+        )
     }
 
     // MARK: Filters
@@ -215,11 +231,17 @@ struct FilesView: View {
                             .padding(.horizontal, 13)
                             .frame(height: 34)
                             .background(
-                                Capsule().fill(tagFilter == pair.tag.id
-                                    ? AnyShapeStyle(Color(hex: pair.tag.color))
-                                    : AnyShapeStyle(theme.surface))
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(tagFilter == pair.tag.id
+                                        ? AnyShapeStyle(Color(hex: pair.tag.color).opacity(0.18))
+                                        : AnyShapeStyle(theme.surface))
                             )
-                            .overlay(Capsule().strokeBorder(theme.hairline, lineWidth: tagFilter == pair.tag.id ? 0 : 1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .strokeBorder(tagFilter == pair.tag.id
+                                                  ? Color(hex: pair.tag.color).opacity(0.5)
+                                                  : theme.hairline, lineWidth: 1)
+                            )
                         }
                         .buttonStyle(PressableStyle(scale: 0.95, haptic: nil))
                     }

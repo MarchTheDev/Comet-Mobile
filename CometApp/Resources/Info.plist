@@ -24,6 +24,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Manrope_400Regular.ttf</string>
+		<string>Manrope_500Medium.ttf</string>
+		<string>Manrope_600SemiBold.ttf</string>
+		<string>Manrope_700Bold.ttf</string>
+		<string>Manrope_800ExtraBold.ttf</string>
+	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

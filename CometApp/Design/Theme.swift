@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct CometTheme {
     let palette: Palette
@@ -14,56 +15,54 @@ struct CometTheme {
     var isDark: Bool { palette.isDark }
     var canvas: Color { palette.canvasColor }
     var surface: Color { palette.surfaceColor }
+    var soft: Color { palette.softColor }
     var raised: Color { palette.raisedColor }
     var ink: Color { palette.inkColor }
     var secondary: Color { palette.secondaryColor }
     var tertiary: Color { palette.tertiaryColor }
     var accent: Color { palette.accentColor }
-    var accentTwo: Color { palette.accentTwoColor }
+    var accentInk: Color { palette.accentInkColor }
+    var accentSoft: Color { palette.accentSoftColor }
     var border: Color { palette.borderColor }
-    var glow: Color { palette.glowColor }
+    var borderStrong: Color { palette.borderStrongColor }
 
-    /// A hairline that reads on both surfaces.
+    /// The desktop app's one line colour.
     var hairline: Color { palette.borderColor }
+    var strongLine: Color { palette.borderStrongColor }
 
-    var shadow: Color { Color.black.opacity(isDark ? 0.45 : 0.10) }
-    var softShadow: Color { Color.black.opacity(isDark ? 0.28 : 0.07) }
+    /// Kept for call sites written against the earlier design.
+    var accentTwo: Color { palette.accentInkColor }
+    var glow: Color { palette.accentSoftColor }
 
+    var shadow: Color { isDark ? Color.black.opacity(0.35) : Color(hex: "#526E7D").opacity(0.10) }
+    var softShadow: Color { isDark ? Color.black.opacity(0.25) : Color(hex: "#526E7D").opacity(0.07) }
+
+    /// The desktop has no gradients in its chrome; buttons are flat accent.
     var accentGradient: LinearGradient {
-        LinearGradient(colors: [accent, accentTwo], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [accent, accent], startPoint: .top, endPoint: .bottom)
     }
 
     var canvasGradient: LinearGradient {
-        LinearGradient(
-            colors: isDark
-                ? [canvas, palette.raisedColor.opacity(0.55), canvas]
-                : [canvas, surface, canvas],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        LinearGradient(colors: [soft, canvas], startPoint: .top, endPoint: .bottom)
     }
 
-    /// Glass tint: the surface colour so materials pick up the palette.
-    var glassTint: Color { surface.opacity(isDark ? 0.55 : 0.7) }
-    var glassStroke: Color { isDark ? Color.white.opacity(0.14) : Color.black.opacity(0.06) }
+    var onAccent: Color { palette.onAccentColor }
 
-    /// Ink for text that sits on the accent colour.
-    var onAccent: Color { isDark ? palette.canvasColor : Color.white }
+    var glassTint: Color { surface }
+    var glassStroke: Color { border }
 
-    static let midnight = CometTheme(palette: .midnight)
-    static let daylight = CometTheme(palette: .daylight)
+    static let comet = CometTheme(palette: .comet)
 
-    /// Resolve the stored preference against the system appearance.
     static func resolve(paletteID: String, colorScheme: ColorScheme) -> CometTheme {
         if paletteID == "auto" {
-            return colorScheme == .dark ? .midnight : .daylight
+            return colorScheme == .dark ? CometTheme(palette: .cometDark) : CometTheme(palette: .comet)
         }
         return CometTheme(palette: Palette.named(paletteID))
     }
 }
 
 private struct CometThemeKey: EnvironmentKey {
-    static let defaultValue = CometTheme.midnight
+    static let defaultValue = CometTheme.comet
 }
 
 extension EnvironmentValues {
@@ -75,26 +74,58 @@ extension EnvironmentValues {
 
 // MARK: - Type
 
-/// Comet's type scale: rounded for anything that names something, plain for
-/// reading, monospaced for anything that is really data.
+/// The desktop app sets everything in Manrope. The app carries the same font so
+/// a note reads the same on both screens, and falls back to the system face if
+/// it is ever missing from the bundle.
+enum Manrope {
+    static let regular = "Manrope-Regular"
+    static let medium = "Manrope-Medium"
+    static let semibold = "Manrope-SemiBold"
+    static let bold = "Manrope-Bold"
+    static let extraBold = "Manrope-ExtraBold"
+
+    static let isAvailable: Bool = UIFont(name: regular, size: 12) != nil
+
+    static func name(for weight: Font.Weight) -> String {
+        switch weight {
+        case .ultraLight, .thin, .light: return regular
+        case .medium: return medium
+        case .semibold: return semibold
+        case .bold: return bold
+        case .heavy, .black: return extraBold
+        default: return regular
+        }
+    }
+}
+
 struct CometType {
     var scale: CGFloat = 1
     var bodyScale: CGFloat = 1
 
+    /// The desktop's interface is compact: 24–35pt for a page title, 14pt for
+    /// reading, 9–11pt for labels. The multipliers below keep the call sites
+    /// written for the earlier, roomier scale honest without touching them.
     func display(_ size: CGFloat) -> Font {
-        .system(size: size * scale, weight: .bold, design: .rounded)
+        font(size * 0.78 * scale, weight: .bold)
     }
     func title(_ size: CGFloat) -> Font {
-        .system(size: size * scale, weight: .semibold, design: .rounded)
+        font(size * 0.88 * scale, weight: .semibold)
     }
     func label(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-        .system(size: size * scale, weight: weight, design: .rounded)
+        font(size * scale, weight: weight)
     }
     func prose(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size * bodyScale, weight: weight)
+        font(size * 0.94 * bodyScale, weight: weight)
     }
     func mono(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size * bodyScale, weight: weight, design: .monospaced)
+        .system(size: size * 0.95 * bodyScale, weight: weight, design: .monospaced)
+    }
+
+    func font(_ size: CGFloat, weight: Font.Weight) -> Font {
+        if Manrope.isAvailable {
+            return .custom(Manrope.name(for: weight), size: size)
+        }
+        return .system(size: size, weight: weight)
     }
 }
 
@@ -118,7 +149,7 @@ extension View {
     }
 
     func cometShadow(_ theme: CometTheme, lift: CGFloat = 1) -> some View {
-        shadow(color: theme.shadow, radius: 22 * lift, x: 0, y: 12 * lift)
+        shadow(color: theme.shadow.opacity(0.4 * lift), radius: 14 * lift, x: 0, y: 6 * lift)
     }
 
     @ViewBuilder

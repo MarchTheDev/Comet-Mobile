@@ -106,34 +106,25 @@ struct SettingsScreen: View {
                 Spacer(minLength: 0)
             }
             Text(model.storageSummary)
-                .font(type.mono(11))
+                .font(type.mono(10.5))
                 .foregroundStyle(theme.tertiary)
-            HStack(spacing: 10) {
-                Button {
-                    Haptics.tap()
-                    showingWorkspacePicker = true
-                } label: {
-                    Text("Open another folder")
-                        .font(type.label(13, weight: .semibold))
-                        .foregroundStyle(theme.accent)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .background(Capsule().fill(theme.accent.opacity(0.12)))
-                }
-                .buttonStyle(PressableStyle())
-                Button {
-                    Haptics.tap()
+            HStack(spacing: 6) {
+                Image(systemName: model.isWorkspaceReachable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(model.isWorkspaceReachable
+                     ? "This folder is readable and writable"
+                     : "This folder cannot be read — check it, or open another")
+                    .font(type.prose(11.5))
+            }
+            .foregroundStyle(model.isWorkspaceReachable ? theme.secondary : Color(hex: "#BD6C65"))
+
+            HStack(spacing: 8) {
+                smallButton("Open folder", tint: theme.accentInk) { showingWorkspacePicker = true }
+                smallButton("Switch") {
                     model.showingWorkspacePicker = true
                     close()
-                } label: {
-                    Text("Switch")
-                        .font(type.label(13, weight: .semibold))
-                        .foregroundStyle(theme.ink)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .background(Capsule().fill(theme.raised))
                 }
-                .buttonStyle(PressableStyle())
+                smallButton("Check") { _ = model.repairWorkspace() }
             }
         }
     }
@@ -200,6 +191,28 @@ struct SettingsScreen: View {
         }
     }
 
+    private func smallButton(_ title: String, tint: Color? = nil, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            Text(title)
+                .font(type.label(12, weight: .semibold))
+                .foregroundStyle(tint ?? theme.secondary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(tint == nil ? theme.soft : theme.accentSoft)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(theme.hairline, lineWidth: 1)
+                )
+        }
+        .buttonStyle(PressableStyle())
+    }
+
     private var resetButton: some View {
         Button {
             Haptics.warning()
@@ -223,7 +236,7 @@ struct SettingsScreen: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cometCard(radius: 24, lift: 0.5)
+        .cometCard(radius: 12, lift: 0.5)
     }
 
     private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>,
@@ -281,22 +294,29 @@ private struct PaletteTile: View {
     }
 
     private var swatch: some View {
-        ZStack {
-            Circle()
-                .fill(LinearGradient(colors: [palette.accentColor, palette.accentTwoColor],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 40, height: 40)
-            Circle()
-                .strokeBorder(palette.canvasColor.opacity(0.55), lineWidth: 4)
-                .frame(width: 28, height: 28)
+        ZStack(alignment: .bottomLeading) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(palette.canvasColor)
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(palette.surfaceColor)
+                .padding(6)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(palette.accentColor)
+                .frame(width: 18, height: 8)
+                .padding(10)
             if selected {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .bold))
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(palette.accentColor)
+                    .padding(5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
         }
+        .frame(height: 44)
         .overlay(
-            Circle().strokeBorder(theme.ink.opacity(selected ? 0.5 : 0), lineWidth: 2)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(selected ? theme.accent : palette.borderColor, lineWidth: selected ? 2 : 1)
         )
     }
+
 }

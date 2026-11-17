@@ -33,11 +33,15 @@ final class WorkspaceStore {
     // MARK: - Opening
 
     func open(_ ref: WorkspaceRef) throws {
-        var stale = false
         let url: URL
-        do {
-            url = try URL(resolvingBookmarkData: ref.bookmark, options: [.withoutUI], relativeTo: nil, bookmarkDataIsStale: &stale)
-        } catch {
+        if let resolved = WorkspaceStore.resolve(ref.bookmark) {
+            url = resolved
+        } else if let path = WorkspaceStore.existingFolder(at: ref.pathHint) {
+            // A bookmark can go stale across a reinstall or a move. The path is
+            // the fallback, and it is the reason this app can still open the
+            // folder it was using yesterday.
+            url = path
+        } else {
             throw WorkbookError("Comet can't reach this workspace any more. Choose the folder again.")
         }
         close()
@@ -65,7 +69,34 @@ final class WorkspaceStore {
     }
 
     static func makeBookmark(for url: URL) -> Data? {
-        try? url.bookmarkData(options: [.minimalBookmark], includingResourceValuesForKeys: nil, relativeTo: nil)
+        // `.minimalBookmark` is what iOS wants for a security-scoped URL; the
+        // plain form is the fallback for folders that are already inside the
+        // app's own container.
+        if let data = try? url.bookmarkData(options: [.minimalBookmark], includingResourceValuesForKeys: nil, relativeTo: nil) {
+            return data
+        }
+        return try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+    }
+
+    static func resolve(_ bookmark: Data) -> URL? {
+        var stale = false
+        return try? URL(resolvingBookmarkData: bookmark, options: [.withoutUI], relativeTo: nil, bookmarkDataIsStale: &stale)
+    }
+
+    static func existingFolder(at path: String) -> URL? {
+        guard !path.isEmpty else { return nil }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return nil
+        }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    /// True when the folder can actually be listed right now.
+    var isReachable: Bool {
+        guard let root else { return false }
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 
     // MARK: - Paths
@@ -316,7 +347,7 @@ final class WorkspaceStore {
             if FileManager.default.fileExists(atPath: staging.path) {
                 try FileManager.default.removeItem(at: staging)
             }
-            try FileManager.default.copyItem(at: source, to: staging)
+            try WorkspaceStore.coordinatedCopy(from: source, to: staging)
             try FileManager.default.moveItem(at: staging, to: destination)
         } catch {
             try? FileManager.default.removeItem(at: staging)
@@ -324,6 +355,23 @@ final class WorkspaceStore {
         }
         guard let entry = entry(at: path) else { throw WorkbookError("The import did not complete.") }
         return entry
+    }
+
+    /// Copies through a file coordinator, so a document that lives in iCloud or
+    /// another provider is downloaded and read in one go instead of failing
+    /// because it is not on disk yet.
+    static func coordinatedCopy(from source: URL, to destination: URL) throws {
+        var coordinationError: NSError?
+        var copyError: Error?
+        NSFileCoordinator().coordinate(readingItemAt: source, options: [], error: &coordinationError) { url in
+            do {
+                try FileManager.default.copyItem(at: url, to: destination)
+            } catch {
+                copyError = error
+            }
+        }
+        if let coordinationError { throw coordinationError }
+        if let copyError { throw copyError }
     }
 
     func writeBoard(_ text: String, to relativePath: String) throws {

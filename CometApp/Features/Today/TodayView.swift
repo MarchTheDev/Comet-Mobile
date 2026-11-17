@@ -47,41 +47,71 @@ struct TodayView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(dateLine)
-                    .font(type.label(11, weight: .bold))
-                    .tracking(1.6)
-                    .foregroundStyle(theme.accent)
-                Text(CometDate.greeting())
-                    .font(type.display(35))
-                    .foregroundStyle(theme.ink)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-                Text(model.workspaceName)
-                    .font(type.prose(13.5))
-                    .foregroundStyle(theme.tertiary)
-            }
-            Spacer(minLength: 8)
-            Button {
-                Haptics.tap()
-                model.showingWorkspacePicker = true
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(theme.accentGradient)
-                        .frame(width: 44, height: 44)
-                    Text(String(model.workspaceName.prefix(1)).uppercased())
-                        .font(type.display(19))
-                        .foregroundStyle(theme.onAccent)
+        // The desktop's cover card: one filled panel at the top of the
+        // workspace, carrying the date, the greeting and where you are.
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(
+                    LinearGradient(colors: [theme.accent.opacity(theme.isDark ? 0.55 : 0.92),
+                                            theme.accent.opacity(theme.isDark ? 0.35 : 0.78)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(
+                    LinearGradient(colors: [Color.black.opacity(0.18), .clear],
+                                   startPoint: .leading, endPoint: .trailing)
+                )
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    HStack(spacing: 6) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 5))
+                        Text(dateLine)
+                            .font(type.label(9.5, weight: .heavy))
+                            .tracking(1.6)
+                    }
+                    .foregroundStyle(theme.onAccent.opacity(0.85))
+
+                    Spacer()
+
+                    Button {
+                        Haptics.tap()
+                        model.showingWorkspacePicker = true
+                    } label: {
+                        Image(systemName: "square.on.square")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(theme.onAccent)
+                            .frame(width: 32, height: 32)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Color.white.opacity(0.16))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.28), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(PressableStyle())
+                    .accessibilityLabel("Switch workspace")
                 }
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
-                .shadow(color: theme.accent.opacity(0.35), radius: 12, y: 6)
+
+                Spacer(minLength: 18)
+
+                Text(CometDate.greeting())
+                    .font(type.display(38))
+                    .foregroundStyle(theme.onAccent)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                Text(model.workspaceName)
+                    .font(type.prose(12.5))
+                    .foregroundStyle(theme.onAccent.opacity(0.8))
+                    .padding(.top, 6)
             }
-            .buttonStyle(PressableStyle())
-            .accessibilityLabel("Switch workspace")
+            .padding(20)
         }
-        .padding(.top, 6)
+        .frame(minHeight: 176)
+        .cometShadow(theme, lift: 0.6)
     }
 
     // MARK: Focus

@@ -2,10 +2,11 @@
 //  Palette.swift
 //  Comet
 //
-//  Comet's palettes, kept as named worlds rather than a light/dark switch: each
-//  one carries its own canvas, surface, ink and two accent colours, and the
-//  whole app is painted from these eight values. Adding a palette is adding a
-//  row here.
+//  The palettes the desktop app paints itself with, carried over value for
+//  value: the same canvas, panel, border, text and accent variables under the
+//  same names. The mobile app is allowed to lay them out differently, but it
+//  should not invent different colours — a workspace opened in both places
+//  should look like the same workspace.
 //
 
 import SwiftUI
@@ -16,98 +17,127 @@ struct Palette: Identifiable, Hashable {
     let note: String
     let isDark: Bool
     let canvas: String
-    let surface: String
-    let raised: String
-    let ink: String
-    let inkSecondary: String
-    let inkTertiary: String
-    let accent: String
-    let accentTwo: String
+    let panel: String
+    let panelSoft: String
+    let panelRaised: String
     let border: String
-    let glow: String
+    let borderStrong: String
+    let text: String
+    let textSecondary: String
+    let textMuted: String
+    let accent: String
+    let accentInk: String
+    let accentSoft: String
+
+    // MARK: Colours
 
     var canvasColor: Color { Color(hex: canvas) }
-    var surfaceColor: Color { Color(hex: surface) }
-    var raisedColor: Color { Color(hex: raised) }
-    var inkColor: Color { Color(hex: ink) }
-    var secondaryColor: Color { Color(hex: inkSecondary) }
-    var tertiaryColor: Color { Color(hex: inkTertiary) }
-    var accentColor: Color { Color(hex: accent) }
-    var accentTwoColor: Color { Color(hex: accentTwo) }
+    var surfaceColor: Color { Color(hex: panel) }
+    var softColor: Color { Color(hex: panelSoft) }
+    var raisedColor: Color { Color(hex: panelRaised) }
     var borderColor: Color { Color(hex: border) }
-    var glowColor: Color { Color(hex: glow) }
+    var borderStrongColor: Color { Color(hex: borderStrong) }
+    var inkColor: Color { Color(hex: text) }
+    var secondaryColor: Color { Color(hex: textSecondary) }
+    var tertiaryColor: Color { Color(hex: textMuted) }
+    var accentColor: Color { Color(hex: accent) }
+    var accentInkColor: Color { Color(hex: accentInk) }
+    var accentSoftColor: Color { Color(hex: accentSoft) }
+
+    /// Older call sites talk about a second accent and a glow. The desktop
+    /// palette has neither, so both resolve to the accent's own family.
+    var accentTwoColor: Color { Color(hex: accentInk) }
+    var glowColor: Color { Color(hex: accentSoft) }
+
+    /// White reads on a dark accent; the canvas colour reads on a pale one.
+    var onAccentColor: Color {
+        let (r, g, b) = Palette.rgb(accent)
+        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return luminance > 0.62 ? canvasColor : .white
+    }
+
+    static func rgb(_ hex: String) -> (Double, Double, Double) {
+        var value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("#") { value.removeFirst() }
+        if value.count == 8 { value.removeFirst(2) }
+        guard value.count == 6, let number = UInt32(value, radix: 16) else { return (0, 0, 0) }
+        return (Double((number >> 16) & 0xFF) / 255,
+                Double((number >> 8) & 0xFF) / 255,
+                Double(number & 0xFF) / 255)
+    }
+
+    // MARK: The palettes
 
     static let all: [Palette] = [
-        Palette(id: "auto", name: "Auto", note: "Daylight by day, Midnight by night", isDark: true,
-                canvas: "#070B14", surface: "#0F1626", raised: "#16203A", ink: "#EEF3FF",
-                inkSecondary: "#A9B6D4", inkTertiary: "#6C7A99", accent: "#7FA9FF",
-                accentTwo: "#B79CFF", border: "#26FFFFFF", glow: "#4B6BFF"),
-        Palette(id: "midnight", name: "Midnight", note: "Deep space, cool light", isDark: true,
-                canvas: "#070B14", surface: "#0E1524", raised: "#15203A", ink: "#EEF3FF",
-                inkSecondary: "#A9B6D4", inkTertiary: "#6C7A99", accent: "#7FA9FF",
-                accentTwo: "#B79CFF", border: "#26FFFFFF", glow: "#4B6BFF"),
-        Palette(id: "daylight", name: "Daylight", note: "Paper white, steel blue", isDark: false,
-                canvas: "#F2F4F9", surface: "#FFFFFF", raised: "#FFFFFF", ink: "#101827",
-                inkSecondary: "#58657C", inkTertiary: "#8A94A6", accent: "#3D6FE0",
-                accentTwo: "#7D5CF0", border: "#14101827", glow: "#8FB4FF"),
-        Palette(id: "aurora", name: "Aurora", note: "Green sky over black ice", isDark: true,
-                canvas: "#04120F", surface: "#0A201C", raised: "#0F2A25", ink: "#E9FFF8",
-                inkSecondary: "#9BC9BB", inkTertiary: "#5E8478", accent: "#52E3B7",
-                accentTwo: "#7C9CFF", border: "#26FFFFFF", glow: "#14C8A0"),
-        Palette(id: "ember", name: "Ember", note: "Warm charcoal, firelight", isDark: true,
-                canvas: "#140A07", surface: "#21120C", raised: "#2C1912", ink: "#FFF1E9",
-                inkSecondary: "#D3A996", inkTertiary: "#8C6758", accent: "#FF8A5B",
-                accentTwo: "#FFC46B", border: "#26FFFFFF", glow: "#FF6B35"),
-        Palette(id: "sakura", name: "Sakura", note: "Blossom on cream", isDark: false,
-                canvas: "#FBF3F6", surface: "#FFFFFF", raised: "#FFFFFF", ink: "#2B1720",
-                inkSecondary: "#7C5B69", inkTertiary: "#A98D9A", accent: "#D9599B",
-                accentTwo: "#9A6BE0", border: "#142B1720", glow: "#FFB3D2"),
-        Palette(id: "matcha", name: "Matcha", note: "Soft green, quiet light", isDark: false,
-                canvas: "#F3F7EE", surface: "#FFFFFF", raised: "#FFFFFF", ink: "#16210F",
-                inkSecondary: "#566647", inkTertiary: "#85937A", accent: "#3F7D4C",
-                accentTwo: "#7FA83C", border: "#1416210F", glow: "#A8D672"),
-        Palette(id: "navy", name: "Navy", note: "Harbour at dusk", isDark: true,
-                canvas: "#060E1C", surface: "#0C1930", raised: "#122343", ink: "#E8F0FF",
-                inkSecondary: "#9DB2D6", inkTertiary: "#64789B", accent: "#6C9BD9",
-                accentTwo: "#8FD1E8", border: "#26FFFFFF", glow: "#2E5FA3"),
-        Palette(id: "emerald", name: "Emerald", note: "Glass and mineral", isDark: true,
-                canvas: "#04120C", surface: "#0A2017", raised: "#0F2C20", ink: "#E7FFF2",
-                inkSecondary: "#94C9AE", inkTertiary: "#5E8B74", accent: "#34D399",
-                accentTwo: "#A3E635", border: "#26FFFFFF", glow: "#10B981"),
-        Palette(id: "rubellite", name: "Rubellite", note: "Crimson and copper", isDark: true,
-                canvas: "#150608", surface: "#220B0F", raised: "#2E1218", ink: "#FFECEF",
-                inkSecondary: "#D49AA2", inkTertiary: "#8E5C64", accent: "#F87171",
-                accentTwo: "#FB923C", border: "#26FFFFFF", glow: "#DC2626"),
-        Palette(id: "gothic", name: "Gothic", note: "Ink, stone, silence", isDark: true,
-                canvas: "#0A0A0B", surface: "#141416", raised: "#1C1C1F", ink: "#F2F2F4",
-                inkSecondary: "#A8A8B0", inkTertiary: "#6E6E78", accent: "#C9C9D4",
-                accentTwo: "#8E8EA0", border: "#26FFFFFF", glow: "#4B4B57"),
-        Palette(id: "frog", name: "Frog", note: "Moss and lime", isDark: true,
-                canvas: "#0A1206", surface: "#131F0C", raised: "#1A2911", ink: "#F0FFE3",
-                inkSecondary: "#B4CE96", inkTertiary: "#7C9964", accent: "#A3E635",
-                accentTwo: "#4ADE80", border: "#26FFFFFF", glow: "#65A30D"),
-        Palette(id: "nightjar", name: "Nightjar", note: "Lamplight on paper", isDark: true,
-                canvas: "#12100D", surface: "#1C1814", raised: "#26201A", ink: "#FAF3E9",
-                inkSecondary: "#C7B7A0", inkTertiary: "#8E7E68", accent: "#D6B27A",
-                accentTwo: "#C98BA2", border: "#26FFFFFF", glow: "#8A6A3C"),
-        Palette(id: "onyx", name: "Onyx", note: "Black, for OLED", isDark: true,
-                canvas: "#000000", surface: "#0B0B0C", raised: "#141416", ink: "#FFFFFF",
-                inkSecondary: "#A1A1A6", inkTertiary: "#66666C", accent: "#E7E7EA",
-                accentTwo: "#9CA3AF", border: "#24FFFFFF", glow: "#3F3F46"),
+        Palette(id: "auto", name: "System", note: "Comet by day, Comet Dark by night", isDark: false,
+                canvas: "#f3f6f7", panel: "#ffffff", panelSoft: "#f6f9fa", panelRaised: "#ffffff",
+                border: "#e3eaed", borderStrong: "#cfdee4", text: "#304653", textSecondary: "#5f7782",
+                textMuted: "#627985", accent: "#567f97", accentInk: "#466e84", accentSoft: "#e9f2f6"),
+        Palette(id: "comet", name: "Comet", note: "The desktop default", isDark: false,
+                canvas: "#f3f6f7", panel: "#ffffff", panelSoft: "#f6f9fa", panelRaised: "#ffffff",
+                border: "#e3eaed", borderStrong: "#cfdee4", text: "#304653", textSecondary: "#5f7782",
+                textMuted: "#627985", accent: "#567f97", accentInk: "#466e84", accentSoft: "#e9f2f6"),
+        Palette(id: "comet-dark", name: "Comet Dark", note: "The same room at night", isDark: true,
+                canvas: "#10161c", panel: "#182129", panelSoft: "#1c2730", panelRaised: "#202c35",
+                border: "#2a3842", borderStrong: "#405461", text: "#e2ebee", textSecondary: "#a1b2bc",
+                textMuted: "#8a9ea9", accent: "#9cbfcc", accentInk: "#b5d4df", accentSoft: "#253b46"),
+        Palette(id: "emerald", name: "Emerald", note: "Green glass", isDark: true,
+                canvas: "#0e1b19", panel: "#152723", panelSoft: "#203832", panelRaised: "#1b302b",
+                border: "#29483c", borderStrong: "#406a56", text: "#e0f0e8", textSecondary: "#a8c9b8",
+                textMuted: "#83a998", accent: "#7acaa0", accentInk: "#b4ebcb", accentSoft: "#294a3a"),
+        Palette(id: "rubellite", name: "Rubellite", note: "Rose stone", isDark: true,
+                canvas: "#20171c", panel: "#2c1c25", panelSoft: "#402a36", panelRaised: "#35242e",
+                border: "#523341", borderStrong: "#795364", text: "#f3e4eb", textSecondary: "#d5b7c5",
+                textMuted: "#b796a6", accent: "#e49ab9", accentInk: "#f4c2d5", accentSoft: "#543241"),
+        Palette(id: "navy", name: "Navy", note: "Midnight blue", isDark: true,
+                canvas: "#101725", panel: "#19263a", panelSoft: "#263955", panelRaised: "#20304a",
+                border: "#334a68", borderStrong: "#536c91", text: "#e2ebf9", textSecondary: "#b3c6dd",
+                textMuted: "#8da6c6", accent: "#8bb7ec", accentInk: "#c1dcff", accentSoft: "#2a4363"),
         Palette(id: "0807-light", name: "0807 Light", note: "Lavender daylight", isDark: false,
-                canvas: "#F6F4FB", surface: "#FFFFFF", raised: "#FFFFFF", ink: "#1A1626",
-                inkSecondary: "#5F5876", inkTertiary: "#948EAA", accent: "#7257D6",
-                accentTwo: "#4FA9E8", border: "#141A1626", glow: "#B7A6FF"),
+                canvas: "#f6f8fc", panel: "#ffffff", panelSoft: "#f6f8fc", panelRaised: "#ffffff",
+                border: "#dee4ef", borderStrong: "#c4cddd", text: "#333f5c", textSecondary: "#5b6882",
+                textMuted: "#737e94", accent: "#e25c5c", accentInk: "#b73e42", accentSoft: "#fbe9e9"),
         Palette(id: "0807-dark", name: "0807 Dark", note: "Lavender midnight", isDark: true,
-                canvas: "#0B0916", surface: "#141026", raised: "#1C1733", ink: "#F1EDFF",
-                inkSecondary: "#B0A6D6", inkTertiary: "#7A7099", accent: "#A78BFA",
-                accentTwo: "#67E8F9", border: "#26FFFFFF", glow: "#7C5CFF"),
+                canvas: "#1d2331", panel: "#262e42", panelSoft: "#303a51", panelRaised: "#262e42",
+                border: "#3a4460", borderStrong: "#586580", text: "#e9edf6", textSecondary: "#c0cadc",
+                textMuted: "#a7b1c8", accent: "#f0837c", accentInk: "#ffc0b8", accentSoft: "#513b49"),
+        Palette(id: "sakura", name: "Sakura", note: "Blossom on paper", isDark: false,
+                canvas: "#f4d3e0", panel: "#fdeef4", panelSoft: "#f7c3d6", panelRaised: "#fdeef4",
+                border: "#dfa5bf", borderStrong: "#bf829e", text: "#38222e", textSecondary: "#6b4358",
+                textMuted: "#89546e", accent: "#cc2f6b", accentInk: "#9d2250", accentSoft: "#f7c3d6"),
+        Palette(id: "matcha", name: "Matcha", note: "Tea and paper", isDark: false,
+                canvas: "#dce8c2", panel: "#f2f7e2", panelSoft: "#e4efd0", panelRaised: "#f2f7e2",
+                border: "#b5cc8e", borderStrong: "#91ae72", text: "#22301b", textSecondary: "#435639",
+                textMuted: "#5c754b", accent: "#47701f", accentInk: "#345817", accentSoft: "#cfe0ac"),
+        Palette(id: "ember", name: "Ember", note: "Firelight", isDark: true,
+                canvas: "#201a17", panel: "#2b231e", panelSoft: "#362a20", panelRaised: "#2b231e",
+                border: "#453930", borderStrong: "#70594a", text: "#f2e7dd", textSecondary: "#d8c8bb",
+                textMuted: "#bfae9f", accent: "#f08c4a", accentInk: "#ffb37d", accentSoft: "#4d3022"),
+        Palette(id: "gothic", name: "Gothic", note: "Ink and plum", isDark: true,
+                canvas: "#14101c", panel: "#1d1729", panelSoft: "#2a1f33", panelRaised: "#1d1729",
+                border: "#362c47", borderStrong: "#685674", text: "#e6dff2", textSecondary: "#c9bed8",
+                textMuted: "#ada0be", accent: "#b34a75", accentInk: "#e896b8", accentSoft: "#46273d"),
+        Palette(id: "frog", name: "Frog", note: "Moss and lime", isDark: true,
+                canvas: "#111a10", panel: "#1a2618", panelSoft: "#22301c", panelRaised: "#1a2618",
+                border: "#2f4229", borderStrong: "#526d49", text: "#eaf3e2", textSecondary: "#c9ddc1",
+                textMuted: "#a9c19e", accent: "#72c14e", accentInk: "#a2e582", accentSoft: "#30452b"),
+        Palette(id: "nightjar", name: "Nightjar", note: "Blue night", isDark: true,
+                canvas: "#07080d", panel: "#10131c", panelSoft: "#0f1a2b", panelRaised: "#10131c",
+                border: "#1e2a44", borderStrong: "#3e577a", text: "#e6efff", textSecondary: "#becde5",
+                textMuted: "#a0b0cc", accent: "#00a3e8", accentInk: "#6cd8ff", accentSoft: "#123149"),
+        Palette(id: "onyx", name: "Onyx", note: "Black and bone", isDark: true,
+                canvas: "#050505", panel: "#0e0e0e", panelSoft: "#141414", panelRaised: "#0e0e0e",
+                border: "#232323", borderStrong: "#55534c", text: "#e9e6df", textSecondary: "#c9c6bf",
+                textMuted: "#aaa79f", accent: "#d8cfbc", accentInk: "#eee6d5", accentSoft: "#38352e"),
     ]
 
     static func named(_ id: String) -> Palette {
-        all.first { $0.id == id } ?? all[1]
+        all.first { $0.id == id } ?? named("comet")
     }
 
-    static let daylight = named("daylight")
-    static let midnight = named("midnight")
+    static let comet = named("comet")
+    static let cometDark = named("comet-dark")
+
+    /// Palettes offered in Settings, in the desktop app's order.
+    static var selectable: [Palette] { all }
 }

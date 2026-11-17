@@ -2,10 +2,10 @@
 //  Chrome.swift
 //  Comet
 //
-//  Comet has no navigation bar. Chrome is three floating things and nothing
-//  else: a dock that carries the four surfaces, an orb that opens everything
-//  else, and a back lens when there is somewhere to go. Content starts at the
-//  top of the screen and scrolls under all of them.
+//  No navigation bar. The desktop app's sidebar becomes a bar at the bottom of
+//  the screen: the four surfaces, a way into everything else, and the one
+//  accent button that makes something new. Everything is flush, bordered and
+//  the same colour as the panels above it.
 //
 
 import SwiftUI
@@ -29,10 +29,10 @@ enum Tab: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .today: return "sun.horizon"
-        case .files: return "square.stack.3d.up"
-        case .search: return "sparkle.magnifyingglass"
-        case .studio: return "scribble.variable"
+        case .today: return "sun.max"
+        case .files: return "folder"
+        case .search: return "magnifyingglass"
+        case .studio: return "square.grid.2x2"
         }
     }
 }
@@ -44,79 +44,90 @@ struct BottomDock: View {
     @Binding var tab: Tab
     var unread: Int
     var onOrbit: () -> Void
-
-    @Namespace private var lens
+    var onNew: () -> Void = {}
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             ForEach(Tab.allCases) { item in
-                dockButton(item)
+                tabButton(item)
             }
 
-            Rectangle()
-                .fill(theme.hairline)
-                .frame(width: 1, height: 26)
-                .padding(.horizontal, 4)
+            Spacer(minLength: 6)
 
             Button {
-                Haptics.heavy()
+                Haptics.tap()
                 onOrbit()
             } label: {
-                ZStack {
-                    Circle()
-                        .fill(theme.accentGradient)
-                        .frame(width: 46, height: 46)
-                        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                        .shadow(color: theme.accent.opacity(0.45), radius: 14, x: 0, y: 7)
-                    Image(systemName: "circle.hexagongrid.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(theme.onAccent)
-                }
+                Image(systemName: "circle.grid.2x2")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(theme.secondary)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(theme.soft)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(theme.hairline, lineWidth: 1)
+                    )
             }
-            .buttonStyle(PressableStyle(scale: 0.92))
+            .buttonStyle(PressableStyle())
             .accessibilityLabel("All surfaces")
+
+            Button {
+                Haptics.press()
+                onNew()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(theme.onAccent)
+                    .frame(width: 40, height: 36)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(theme.accent)
+                    )
+            }
+            .buttonStyle(PressableStyle())
+            .accessibilityLabel("New item")
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .glassPanel(radius: 34)
+        .padding(.horizontal, 10)
+        .padding(.top, 7)
+        .padding(.bottom, 5)
+        .background(
+            theme.surface
+                .overlay(alignment: .top) { theme.hairline.frame(height: 1) }
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
 
-    private func dockButton(_ item: Tab) -> some View {
+    private func tabButton(_ item: Tab) -> some View {
         let selected = tab == item
         return Button {
             guard tab != item else { return }
             Haptics.select()
-            withAnimation(Motion.spring) { tab = item }
+            withAnimation(Motion.snappy) { tab = item }
         } label: {
-            HStack(spacing: 7) {
+            VStack(spacing: 3) {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: item.symbol)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 17, weight: selected ? .semibold : .regular))
                     if item == .studio && unread > 0 {
                         Circle()
-                            .fill(theme.accentTwo)
-                            .frame(width: 6, height: 6)
+                            .fill(theme.accent)
+                            .frame(width: 5, height: 5)
                             .offset(x: 5, y: -3)
                     }
                 }
-                if selected {
-                    Text(item.title)
-                        .font(type.label(13.5, weight: .bold))
-                        .fixedSize()
-                }
+                Text(item.title)
+                    .font(type.label(9.5, weight: selected ? .bold : .medium))
             }
-            .foregroundStyle(selected ? theme.onAccent : theme.secondary)
-            .padding(.horizontal, selected ? 15 : 12)
-            .frame(height: 44)
-            .background {
-                if selected {
-                    Capsule(style: .continuous)
-                        .fill(theme.accentGradient)
-                        .matchedGeometryEffect(id: "dock-lens", in: lens)
-                }
-            }
+            .foregroundStyle(selected ? theme.accentInk : theme.tertiary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(selected ? theme.accentSoft : Color.clear)
+            )
         }
-        .buttonStyle(PressableStyle(scale: 0.94, haptic: nil))
+        .buttonStyle(PressableStyle(scale: 0.96, haptic: nil))
         .accessibilityLabel(item.title)
     }
 }
@@ -133,12 +144,12 @@ struct ScreenHeader<Trailing: View>: View {
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 10) {
                 Text(eyebrow.uppercased())
-                    .font(type.label(11, weight: .bold))
-                    .tracking(1.6)
-                    .foregroundStyle(theme.accent)
+                    .font(type.label(10, weight: .heavy))
+                    .tracking(1.4)
+                    .foregroundStyle(theme.tertiary)
                 Spacer(minLength: 8)
                 trailing()
             }
@@ -150,13 +161,13 @@ struct ScreenHeader<Trailing: View>: View {
                 .fixedSize(horizontal: false, vertical: true)
             if let subtitle {
                 Text(subtitle)
-                    .font(type.prose(13.5))
-                    .foregroundStyle(theme.tertiary)
+                    .font(type.prose(13))
+                    .foregroundStyle(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 6)
+        .padding(.top, 8)
     }
 }
 
@@ -179,19 +190,26 @@ struct FloatingBack: View {
             Haptics.tap()
             action()
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                 if let label {
                     Text(label)
-                        .font(type.label(13.5, weight: .semibold))
+                        .font(type.label(12.5, weight: .semibold))
                         .lineLimit(1)
                 }
             }
-            .foregroundStyle(theme.ink)
-            .padding(.horizontal, label == nil ? 13 : 15)
-            .frame(height: 40)
-            .glassPanel(radius: 20)
+            .foregroundStyle(theme.secondary)
+            .padding(.horizontal, 11)
+            .frame(height: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(theme.hairline, lineWidth: 1)
+                    )
+            )
         }
         .buttonStyle(PressableStyle())
     }
@@ -204,8 +222,8 @@ struct SheetGrabber: View {
 
     var body: some View {
         Capsule()
-            .fill(theme.tertiary.opacity(0.45))
-            .frame(width: 38, height: 5)
+            .fill(theme.borderStrong)
+            .frame(width: 36, height: 4)
             .padding(.top, 8)
             .padding(.bottom, 4)
     }
@@ -227,7 +245,7 @@ struct SheetTitle<Trailing: View>: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(type.prose(13))
-                        .foregroundStyle(theme.tertiary)
+                        .foregroundStyle(theme.secondary)
                 }
             }
             Spacer(minLength: 8)
@@ -286,24 +304,32 @@ struct ToastView: View {
     private var tint: Color {
         switch tone {
         case .info: return theme.accent
-        case .success: return Color.green
-        case .error: return Color.orange
+        case .success: return Color(hex: "#567D68")
+        case .error: return Color(hex: "#BD6C65")
         }
     }
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(tint)
             Text(text)
-                .font(type.label(13.5, weight: .semibold))
+                .font(type.label(12.5, weight: .semibold))
                 .foregroundStyle(theme.ink)
                 .lineLimit(2)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .glassPanel(radius: 20)
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(theme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(theme.hairline, lineWidth: 1)
+                )
+                .shadow(color: theme.shadow, radius: 16, x: 0, y: 8)
+        )
+        .padding(.horizontal, 20)
     }
 }

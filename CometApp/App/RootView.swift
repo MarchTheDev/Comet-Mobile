@@ -45,7 +45,12 @@ struct RootView: View {
                 .environment(\.comet, theme)
                 .environment(\.type, type)
         }
-        .sheet(isPresented: $model.showingNewItem) {
+        .sheet(isPresented: $model.showingNewItem, onDismiss: {
+            if let entry = model.pendingOpen {
+                model.pendingOpen = nil
+                model.open(entry)
+            }
+        }) {
             NewItemSheet()
                 .environmentObject(model)
                 .environment(\.comet, theme)
@@ -110,12 +115,11 @@ struct RootView: View {
     }
 
     private var dock: some View {
-        BottomDock(tab: $model.tab, unread: model.unreadTotal) {
-            model.showingOrbit = true
-        }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 4)
-        .ignoresSafeArea(.keyboard, edges: .bottom)
+        BottomDock(tab: $model.tab,
+                   unread: model.unreadTotal,
+                   onOrbit: { model.showingOrbit = true },
+                   onNew: { model.showingNewItem = true })
+            .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
 
@@ -335,7 +339,7 @@ struct NewItemSheet: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             SheetGrabber()
             HStack {
                 Text("New")
@@ -352,6 +356,40 @@ struct NewItemSheet: View {
                         .background(Circle().fill(theme.raised))
                 }
             }
+            .padding(.horizontal, 22)
+
+            HStack(spacing: 8) {
+                Image(systemName: "character.cursor.ibeam")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.tertiary)
+                TextField("Name (optional)", text: $name)
+                    .font(type.prose(14))
+                    .foregroundStyle(theme.ink)
+                    .textInputAutocapitalization(.sentences)
+                    .autocorrectionDisabled()
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .onSubmit { create(.note) }
+                if !name.isEmpty {
+                    Button {
+                        name = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(theme.tertiary)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.soft)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(theme.hairline, lineWidth: 1)
+                    )
+            )
             .padding(.horizontal, 22)
 
             ScrollView {
@@ -377,7 +415,7 @@ struct NewItemSheet: View {
                                     .foregroundStyle(theme.tertiary)
                             }
                             .padding(12)
-                            .cometCard(radius: 22, lift: 0.4)
+                            .cometCard(radius: 12, lift: 0.4)
                         }
                         .buttonStyle(PressableStyle(scale: 0.98, haptic: nil))
                         .stagger(index)
@@ -389,7 +427,7 @@ struct NewItemSheet: View {
         }
         .padding(.top, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(theme.canvasGradient.ignoresSafeArea())
+        .background(theme.canvas.ignoresSafeArea())
         .fileImporter(isPresented: $showsImport,
                       allowedContentTypes: [.item],
                       allowsMultipleSelection: true) { result in
@@ -402,27 +440,49 @@ struct NewItemSheet: View {
 
     private enum NewItemAction { case note, todo, whiteboard, folder, importFile }
 
+    private func title(for kind: EntryKind) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? model.defaultName(for: kind) : trimmed
+    }
+
+    private func create(_ kind: EntryKind) {
+        let entry: Entry?
+        switch kind {
+        case .note:
+            entry = model.createNote(named: title(for: .note), contents: "# \n\n")
+        case .todo, .whiteboard:
+            entry = model.createBoard(kind, named: title(for: kind))
+        case .folder:
+            entry = model.createFolder(named: title(for: .folder))
+        default:
+            entry = nil
+        }
+        guard let entry else {
+            // The model has already put a reason in the alert; leaving the sheet
+            // up means the name can be corrected without starting again.
+            return
+        }
+        name = ""
+        if entry.isFolder {
+            model.pendingOpen = nil
+            dismiss()
+            model.toast.show("Folder created", tone: .success)
+        } else {
+            model.pendingOpen = entry
+            dismiss()
+        }
+    }
+
     private func perform(_ action: NewItemAction) {
         switch action {
         case .note:
-            let entry = model.createNote(named: model.defaultName(for: .note), contents: "# \n\n")
-            dismiss()
-            if let entry { model.open(entry) }
+            create(.note)
         case .todo:
-            if let entry = model.createBoard(.todo, named: model.defaultName(for: .todo)) {
-                dismiss()
-                model.open(entry)
-            }
+            create(.todo)
         case .whiteboard:
-            if let entry = model.createBoard(.whiteboard, named: model.defaultName(for: .whiteboard)) {
-                dismiss()
-                model.open(entry)
-            }
+            create(.whiteboard)
         case .folder:
-            if model.createFolder(named: model.defaultName(for: .folder)) != nil {
-                dismiss()
-                model.toast.show("Folder created", tone: .success)
-            }
+            create(.folder)
         case .importFile:
             showsImport = true
         }
@@ -456,6 +516,40 @@ struct WorkspaceSheet: View {
             }
             .padding(.horizontal, 22)
 
+            HStack(spacing: 8) {
+                Image(systemName: "character.cursor.ibeam")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.tertiary)
+                TextField("Name (optional)", text: $name)
+                    .font(type.prose(14))
+                    .foregroundStyle(theme.ink)
+                    .textInputAutocapitalization(.sentences)
+                    .autocorrectionDisabled()
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .onSubmit { create(.note) }
+                if !name.isEmpty {
+                    Button {
+                        name = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(theme.tertiary)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.soft)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(theme.hairline, lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, 22)
+
             ScrollView {
                 VStack(spacing: 10) {
                     ForEach(model.workspaces) { ref in
@@ -483,7 +577,7 @@ struct WorkspaceSheet: View {
                                 }
                             }
                             .padding(12)
-                            .cometCard(radius: 22, lift: 0.4)
+                            .cometCard(radius: 12, lift: 0.4)
                         }
                         .buttonStyle(PressableStyle(scale: 0.98, haptic: nil))
                         .contextMenu {
@@ -512,7 +606,7 @@ struct WorkspaceSheet: View {
                             Spacer()
                         }
                         .padding(12)
-                        .cometCard(radius: 22, lift: 0.4)
+                        .cometCard(radius: 12, lift: 0.4)
                     }
                     .buttonStyle(PressableStyle(scale: 0.98, haptic: nil))
                 }
@@ -524,9 +618,12 @@ struct WorkspaceSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(theme.canvasGradient.ignoresSafeArea())
         .fileImporter(isPresented: $showsPicker, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
-            if case .success(let urls) = result, let url = urls.first {
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
                 model.addWorkspace(url: url)
-                dismiss()
+            case .failure(let error):
+                model.errorMessage = "That folder could not be opened: \(error.localizedDescription)"
             }
         }
     }
