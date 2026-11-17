@@ -753,7 +753,7 @@ const screenSettings = () => `
     <div class="card">
       <div class="label">Appearance</div>
       <div class="swatches" style="margin-top:12px">
-        ${PALETTES.slice(0,8).map(p => `<div class="sw ${p.id === state.palette ? 'on' : ''}" onclick="applyPalette('${p.id}')"><i style="background:linear-gradient(135deg,${p.accent},${p.accent2})"></i>${p.name}</div>`).join("")}
+        ${PALETTES.slice(0,8).map(p => `<div class="sw ${p.id === state.palette ? 'on' : ''}" onclick="applyPalette('${p.id}'); render()"><i style="background:linear-gradient(135deg,${p.accent},${p.accent2})"></i>${p.name}</div>`).join("")}
       </div>
     </div>
     <div class="card" style="margin-top:12px">
