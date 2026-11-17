@@ -282,6 +282,7 @@ final class CometModel: ObservableObject {
         if profile.workspaceName.isEmpty {
             mutateProfile({ $0.workspaceName = ref.name }, record: nil)
         }
+        recentPaths = UserDefaults.standard.stringArray(forKey: "comet.recent." + key) ?? []
         sync = store.summary
     }
 

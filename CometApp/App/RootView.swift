@@ -21,7 +21,7 @@ struct RootView: View {
                              bodyScale: min(1.3, model.settings.textScale))
 
         ZStack(alignment: .bottom) {
-            AuroraBackground(theme: theme)
+            AuroraBackground()
 
             surfaces
                 .transition(.opacity)
@@ -194,11 +194,9 @@ struct OrbitOverlay: View {
 
     var body: some View {
         ZStack {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, theme.isDark ? .dark : .light)
-                .overlay(theme.canvas.opacity(theme.isDark ? 0.45 : 0.35))
+            theme.canvas
                 .ignoresSafeArea()
+                .overlay(alignment: .top) { theme.hairline.frame(height: 1) }
                 .onTapGesture { close() }
 
             ScrollView {
@@ -206,15 +204,15 @@ struct OrbitOverlay: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("EVERYTHING ELSE")
-                                .font(type.label(11, weight: .bold))
-                                .tracking(1.6)
-                                .foregroundStyle(theme.accent)
+                                .font(type.label(10, weight: .heavy))
+                                .tracking(1.4)
+                                .foregroundStyle(theme.tertiary)
                             Text("All surfaces")
-                                .font(type.display(32))
+                                .font(type.display(30))
                                 .foregroundStyle(theme.ink)
                         }
                         Spacer()
-                        IconOrb(icon: "xmark", size: 40) { close() }
+                        IconOrb(icon: "xmark", size: 34) { close() }
                     }
                     .padding(.top, 24)
 
@@ -253,7 +251,7 @@ struct OrbitOverlay: View {
                                 .foregroundStyle(theme.tertiary)
                         }
                         .padding(14)
-                        .cometCard(radius: 22, lift: 0.6)
+                        .cometCard(radius: 12, lift: 0.5)
                     }
                     .buttonStyle(PressableStyle())
 
@@ -514,40 +512,6 @@ struct WorkspaceSheet: View {
                 Spacer()
                 IconOrb(icon: "xmark", size: 34) { dismiss() }
             }
-            .padding(.horizontal, 22)
-
-            HStack(spacing: 8) {
-                Image(systemName: "character.cursor.ibeam")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(theme.tertiary)
-                TextField("Name (optional)", text: $name)
-                    .font(type.prose(14))
-                    .foregroundStyle(theme.ink)
-                    .textInputAutocapitalization(.sentences)
-                    .autocorrectionDisabled()
-                    .focused($focused)
-                    .submitLabel(.done)
-                    .onSubmit { create(.note) }
-                if !name.isEmpty {
-                    Button {
-                        name = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(theme.tertiary)
-                    }
-                }
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 40)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(theme.soft)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(theme.hairline, lineWidth: 1)
-                    )
-            )
             .padding(.horizontal, 22)
 
             ScrollView {
