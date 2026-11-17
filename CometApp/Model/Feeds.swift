@@ -163,7 +163,9 @@ private final class FeedXMLDelegate: NSObject, XMLParserDelegate {
         case "encoded", "content":
             if draft?.content.isEmpty == true { draft?.content = text }
         case "pubdate", "published", "updated", "issued", "date":
-            draft?.published = draft?.published ?? FeedDate.parse(text)
+            if draft?.published == nil, let parsed = FeedDate.parse(text) {
+                draft?.published = parsed
+            }
         case "guid", "id":
             if draft?.identity.isEmpty == true { draft?.identity = text }
         case "name":
