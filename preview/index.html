@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comet for iOS — design preview</title>
+<style>
+  :root {
+    --canvas: #070B14; --surface: #0E1524; --raised: #15203A;
+    --ink: #EEF3FF; --ink2: #A9B6D4; --ink3: #6C7A99;
+    --accent: #7FA9FF; --accent2: #B79CFF; --line: rgba(255,255,255,.14); --glow: #4B6BFF;
+    --dark: 1;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    background: #05070c;
+    color: #e8eefa;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 40px 20px 70px;
+    gap: 28px;
+  }
+  .lede { max-width: 620px; text-align: center; }
+  .lede .kicker { font-size: 11px; letter-spacing: .24em; text-transform: uppercase; color: #7d8aa6; }
+  .lede h1 { font-size: clamp(26px, 4vw, 38px); letter-spacing: -.03em; margin: 10px 0 8px; font-weight: 650; }
+  .lede p { margin: 0; color: #97a3ba; font-size: 14.5px; line-height: 1.6; }
+  .lede p + p { margin-top: 8px; }
+
+  /* palette picker */
+  .palettes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 660px; }
+  .pal {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 12px 7px 8px; border-radius: 999px; cursor: pointer;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09);
+    color: #b9c4d8; font-size: 12px; letter-spacing: .01em;
+    transition: background .2s, border-color .2s, color .2s;
+  }
+  .pal:hover { background: rgba(255,255,255,.09); }
+  .pal[aria-pressed="true"] { color: #fff; border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.13); }
+  .pal i {
+    width: 14px; height: 14px; border-radius: 50%; display: block;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.18) inset;
+  }
+
+  /* phone */
+  .stage { display: flex; align-items: center; gap: 34px; flex-wrap: wrap; justify-content: center; }
+  .phone {
+    position: relative;
+    width: 392px; height: 812px;
+    border-radius: 56px;
+    padding: 11px;
+    background: linear-gradient(160deg, #2a2f3a, #0d1016 40%, #23282f);
+    box-shadow: 0 50px 90px -30px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.06);
+    flex: none;
+  }
+  .screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 46px; overflow: hidden;
+    background: var(--canvas); color: var(--ink);
+    display: flex; flex-direction: column;
+    isolation: isolate;
+    font-size: 15px;
+  }
+  .aura { position: absolute; inset: -20%; z-index: -2; pointer-events: none; filter: blur(46px); opacity: calc(.55 + var(--dark) * .25); }
+  .aura::before, .aura::after { content: ""; position: absolute; border-radius: 50%; }
+  .aura::before {
+    width: 62%; height: 46%; left: -6%; top: 4%;
+    background: radial-gradient(circle at 50% 50%, var(--glow), transparent 68%);
+    animation: drift 26s ease-in-out infinite alternate;
+  }
+  .aura::after {
+    width: 58%; height: 40%; right: -8%; bottom: 12%; opacity: .55;
+    background: radial-gradient(circle at 50% 50%, var(--accent2), transparent 70%);
+    animation: drift 31s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes drift { from { transform: translate3d(-12px, -8px, 0) scale(1); } to { transform: translate3d(26px, 20px, 0) scale(1.16); } }
+
+  .status {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 26px 0; font-size: 12.5px; font-weight: 600; letter-spacing: .02em;
+    color: var(--ink); opacity: .92;
+  }
+  .status .island { width: 96px; height: 26px; border-radius: 20px; background: #05070b; margin-top: -6px; }
+  .status .right { display: flex; gap: 5px; align-items: center; }
+
+  .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 6px 0 132px; scrollbar-width: none; }
+  .scroll::-webkit-scrollbar { display: none; }
+  .pad { padding: 0 22px; }
+
+  .eyebrow { font-size: 10.5px; letter-spacing: .17em; text-transform: uppercase; color: var(--ink3); font-weight: 650; }
+  h2.title { font-size: 33px; line-height: 1.04; letter-spacing: -.035em; margin: 7px 0 0; font-weight: 640; }
+  .sub { color: var(--ink2); font-size: 13.5px; margin-top: 8px; line-height: 1.45; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 26px; padding: 18px;
+    box-shadow: 0 20px 40px -30px rgba(0,0,0,.9);
+  }
+  .card.tight { padding: 15px 16px; }
+  .card.glass { background: color-mix(in srgb, var(--surface) 76%, transparent); backdrop-filter: blur(18px); }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .between { justify-content: space-between; }
+  .label { font-size: 10.5px; letter-spacing: .17em; text-transform: uppercase; color: var(--ink3); font-weight: 650; }
+  .muted { color: var(--ink3); font-size: 12px; }
+  .small { font-size: 12.5px; color: var(--ink2); }
+
+  .orbicon {
+    width: 34px; height: 34px; border-radius: 12px; flex: none;
+    display: grid; place-items: center; font-size: 15px;
+    background: color-mix(in srgb, var(--accent) 16%, var(--raised));
+    color: var(--accent);
+  }
+  .orbicon.alt { background: color-mix(in srgb, var(--accent2) 16%, var(--raised)); color: var(--accent2); }
+
+  .chip {
+    padding: 8px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 550;
+    border: 1px solid var(--line); color: var(--ink2);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    white-space: nowrap; cursor: pointer;
+  }
+  .chip.on { background: var(--accent); border-color: transparent; color: #07101f; font-weight: 650; }
+  .chiprow { display: flex; gap: 8px; overflow-x: auto; padding: 2px 22px 2px; scrollbar-width: none; }
+  .chiprow::-webkit-scrollbar { display: none; }
+
+  .tile {
+    border-radius: 22px; padding: 14px; border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    display: flex; flex-direction: column; gap: 10px; min-height: 96px; cursor: pointer;
+  }
+  .tile b { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .filerow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .filerow:last-child { border-bottom: 0; }
+  .filerow .name { font-size: 14px; font-weight: 550; letter-spacing: -.01em; }
+  .filerow .meta { font-size: 11.5px; color: var(--ink3); margin-top: 2px; }
+  .filerow .chev { margin-left: auto; color: var(--ink3); font-size: 12px; }
+
+  .pathpill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+    padding: 7px 11px; border-radius: 999px; color: var(--ink2);
+    border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 70%, transparent);
+  }
+
+  .pillnav { display: flex; gap: 8px; align-items: center; padding: 10px 22px 0; }
+  .lens {
+    width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+    border: 1px solid var(--line); color: var(--ink);
+    background: color-mix(in srgb, var(--surface) 72%, transparent); backdrop-filter: blur(14px);
+    font-size: 15px; flex: none;
+  }
+  .lens.solid { background: linear-gradient(140deg, var(--accent), var(--accent2)); color: #08101f; border: 0; font-weight: 700; }
+
+  /* dock */
+  .dockwrap {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 22px 26px;
+    background: linear-gradient(to top, var(--canvas) 26%, transparent);
+    display: flex; align-items: center; gap: 12px; z-index: 6;
+  }
+  .dock {
+    flex: 1; display: flex; align-items: center; gap: 2px; padding: 6px;
+    border-radius: 999px; border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 74%, transparent); backdrop-filter: blur(22px);
+    box-shadow: 0 18px 40px -22px rgba(0,0,0,.9);
+  }
+  .tab {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 10px 4px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    color: var(--ink3); cursor: pointer; transition: color .18s, background .22s;
+  }
+  .tab .glyph { font-size: 14px; }
+  .tab.on { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  .orb {
+    width: 62px; height: 62px; border-radius: 50%; flex: none; cursor: pointer;
+    background: linear-gradient(140deg, var(--accent), var(--accent2));
+    display: grid; place-items: center; color: #08101f; font-weight: 700;
+    box-shadow: 0 16px 34px -16px var(--glow), 0 0 0 1px rgba(255,255,255,.16) inset;
+  }
+  .orb .rings { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #08101f; position: relative; }
+  .orb .rings::after { content: ""; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #08101f; right: -3px; top: 3px; }
+
+  /* orbit overlay */
+  .orbit {
+    position: absolute; inset: 0; z-index: 8; display: none;
+    padding: 44px 22px 30px; flex-direction: column;
+    background: color-mix(in srgb, var(--canvas) 72%, transparent); backdrop-filter: blur(26px);
+  }
+  .orbit.open { display: flex; animation: rise .32s cubic-bezier(.2,.9,.2,1); }
+  @keyframes rise { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+  .orbitgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 18px; }
+  .dest { border-radius: 22px; padding: 16px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 82%, transparent); cursor: pointer; display: flex; flex-direction: column; gap: 22px; }
+  .dest .g { width: 34px; height: 34px; border-radius: 12px; display: grid; place-items: center; font-size: 15px; }
+  .dest b { font-size: 14px; font-weight: 600; }
+  .dest span { font-size: 11.5px; color: var(--ink3); display: block; margin-top: 3px; }
+
+  /* note */
+  .note h1 { font-size: 27px; letter-spacing: -.03em; margin: 0 0 4px; font-weight: 640; }
+  .note .body { font-family: "New York", "Iowan Old Style", Georgia, serif; font-size: 16px; line-height: 1.62; color: var(--ink); }
+  .note .body h3 { font-family: inherit; font-size: 19px; letter-spacing: -.01em; margin: 22px 0 6px; }
+  .note .body p { margin: 0 0 12px; }
+  .note .body ul { margin: 0 0 12px; padding-left: 20px; }
+  .note .body li { margin-bottom: 6px; }
+  .note .body blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 3px solid var(--accent); color: var(--ink2); background: color-mix(in srgb, var(--surface) 70%, transparent); border-radius: 0 12px 12px 0; }
+  .note .body code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 13px; background: color-mix(in srgb, var(--raised) 80%, transparent); padding: 2px 5px; border-radius: 5px; }
+  .taskline { display: flex; gap: 9px; align-items: flex-start; margin-bottom: 8px; font-family: -apple-system, system-ui, sans-serif; font-size: 14px; }
+  .box { width: 17px; height: 17px; border-radius: 5px; border: 1.6px solid var(--ink3); margin-top: 3px; flex: none; }
+  .box.done { background: var(--accent); border-color: var(--accent); position: relative; }
+  .box.done::after { content: "✓"; position: absolute; inset: 0; color: #08101f; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+  .taskline.done span { color: var(--ink3); text-decoration: line-through; }
+  .formatbar {
+    position: absolute; left: 16px; right: 16px; bottom: 104px; z-index: 5;
+    display: flex; justify-content: space-between; align-items: center; gap: 4px;
+    padding: 9px 12px; border-radius: 999px; border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(20px);
+    font-size: 13.5px; color: var(--ink2);
+  }
+  .formatbar b { color: var(--ink); }
+  .formatbar span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; }
+
+  /* calendar */
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+  .cal .dow { font-size: 10px; letter-spacing: .08em; color: var(--ink3); font-weight: 650; padding-bottom: 4px; }
+  .cal .day { font-size: 12.5px; padding: 8px 0; border-radius: 11px; color: var(--ink2); position: relative; }
+  .cal .day.dim { color: color-mix(in srgb, var(--ink3) 55%, transparent); }
+  .cal .day.today { background: linear-gradient(140deg, var(--accent), var(--accent2)); color: #08101f; font-weight: 700; }
+  .cal .day.dot::after { content: ""; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--accent2); left: 50%; transform: translateX(-50%); bottom: 3px; }
+  .cal .day.today.dot::after { background: #08101f; }
+
+  /* kanban */
+  .kanban { display: flex; gap: 10px; overflow-x: auto; padding: 0 22px; scrollbar-width: none; }
+  .kanban::-webkit-scrollbar { display: none; }
+  .col { flex: none; width: 208px; border-radius: 22px; padding: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 80%, transparent); }
+  .colhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink3); font-weight: 650; }
+  .tcard { border-radius: 14px; padding: 11px 12px; margin-bottom: 8px; background: color-mix(in srgb, var(--raised) 90%, transparent); border: 1px solid var(--line); font-size: 12.5px; line-height: 1.4; }
+  .tcard .tiny { margin-top: 7px; font-size: 10.5px; color: var(--ink3); display: flex; gap: 6px; align-items: center; }
+
+  /* tools */
+  .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .key { padding: 16px 0; text-align: center; border-radius: 16px; font-size: 17px; font-weight: 550; border: 1px solid var(--line); background: color-mix(in srgb, var(--raised) 84%, transparent); cursor: pointer; }
+  .key.op { color: var(--accent); }
+  .key.eq { background: linear-gradient(140deg, var(--accent), var(--accent2)); color: #08101f; border: 0; font-weight: 700; }
+
+  /* vault */
+  .vaultrow { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: color-mix(in srgb, var(--raised) 70%, transparent); border: 1px solid var(--line); margin-bottom: 8px; }
+  .strength { height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 12%, transparent); overflow: hidden; margin-top: 10px; }
+  .strength i { display: block; height: 100%; width: 78%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+  /* settings */
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .setting:last-child { border-bottom: 0; }
+  .switch { width: 44px; height: 27px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 16%, transparent); position: relative; flex: none; }
+  .switch::after { content: ""; position: absolute; width: 21px; height: 21px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: transform .2s; }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { transform: translateX(17px); }
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+  .sw { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 9.5px; color: var(--ink3); cursor: pointer; text-align: center; }
+  .sw i { width: 34px; height: 34px; border-radius: 50%; display: block; }
+  .sw.on i { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--ink); }
+
+  .footer { max-width: 660px; color: #7d8aa6; font-size: 12.5px; line-height: 1.7; text-align: center; }
+  .footer b { color: #b9c4d8; font-weight: 600; }
+  .chipsline { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; color: #5f6b82; font-size: 11.5px; }
+  .chipsline span { border: 1px solid #1c2331; border-radius: 999px; padding: 4px 9px; }
+
+  @media (max-width: 720px) {
+    body { padding: 26px 12px 50px; }
+    .phone { width: min(392px, 100%); height: min(812px, calc(100vh - 60px)); min-height: 640px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="lede">
+  <div class="kicker">Comet for iOS</div>
+  <h1>Design preview</h1>
+  <p>The native app, drawn in a browser. Same palettes, same type, same dock, same orb — a quick way to look at the design without a device. The real screens are SwiftUI.</p>
+</div>
+
+<div class="palettes" id="palettes"></div>
+
+<div class="stage">
+  <div class="phone" id="phone">
+    <div class="screen" id="screen">
+      <div class="aura"></div>
+      <div class="status">
+        <span>9:41</span>
+        <span class="island"></span>
+        <span class="right"><span>▮▮▮</span><span>◔</span></span>
+      </div>
+      <div class="scroll" id="view"></div>
+      <div class="orbit" id="orbit"></div>
+      <div class="dockwrap" id="dockwrap"></div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <p><b>What this is.</b> A static reproduction of the app's interface for looking at, not the app itself. Notes, files, boards, feeds, calendar, vault, tools and the readers are all native SwiftUI in <code>CometApp/</code>; this page repeats the layout and the palette system in HTML so the design can be reviewed in a browser.</p>
+  <p>Keep in mind: the real app also has the parts a browser cannot show — the Taptic Engine, sheets springing from the bottom edge, the drifting aurora, and pinch-to-zoom.</p>
+</div>
+
+<script>
+const PALETTES = [
+  { id:"midnight", name:"Midnight", canvas:"#070B14", surface:"#0E1524", raised:"#15203A", ink:"#EEF3FF", ink2:"#A9B6D4", ink3:"#6C7A99", accent:"#7FA9FF", accent2:"#B79CFF", glow:"#4B6BFF", dark:1 },
+  { id:"aurora", name:"Aurora", canvas:"#04120F", surface:"#0A201C", raised:"#0F2A25", ink:"#E9FFF8", ink2:"#9BC9BB", ink3:"#5E8478", accent:"#52E3B7", accent2:"#7C9CFF", glow:"#14C8A0", dark:1 },
+  { id:"ember", name:"Ember", canvas:"#140A07", surface:"#21120C", raised:"#2C1912", ink:"#FFF1E9", ink2:"#D3A996", ink3:"#8C6758", accent:"#FF8A5B", accent2:"#FFC46B", glow:"#FF6B35", dark:1 },
+  { id:"sakura", name:"Sakura", canvas:"#FBF3F6", surface:"#FFFFFF", raised:"#FFFFFF", ink:"#2B1720", ink2:"#7C5B69", ink3:"#A98D9A", accent:"#D9599B", accent2:"#9A6BE0", glow:"#FFB3D2", dark:0 },
+  { id:"matcha", name:"Matcha", canvas:"#F3F7EE", surface:"#FFFFFF", raised:"#FFFFFF", ink:"#16210F", ink2:"#566647", ink3:"#85937A", accent:"#3F7D4C", accent2:"#7FA83C", glow:"#A8D672", dark:0 },
+  { id:"navy", name:"Navy", canvas:"#060E1C", surface:"#0C1930", raised:"#122343", ink:"#E8F0FF", ink2:"#9DB2D6", ink3:"#64789B", accent:"#6C9BD9", accent2:"#8FD1E8", glow:"#2E5FA3", dark:1 },
+  { id:"emerald", name:"Emerald", canvas:"#04120C", surface:"#0A2017", raised:"#0F2C20", ink:"#E7FFF2", ink2:"#94C9AE", ink3:"#5E8B74", accent:"#34D399", accent2:"#A3E635", glow:"#10B981", dark:1 },
+  { id:"rubellite", name:"Rubellite", canvas:"#150608", surface:"#220B0F", raised:"#2E1218", ink:"#FFECEF", ink2:"#D49AA2", ink3:"#8E5C64", accent:"#F87171", accent2:"#FB923C", glow:"#DC2626", dark:1 },
+  { id:"gothic", name:"Gothic", canvas:"#0A0A0B", surface:"#141416", raised:"#1C1C1F", ink:"#F2F2F4", ink2:"#A8A8B0", ink3:"#6E6E78", accent:"#C9C9D4", accent2:"#8E8EA0", glow:"#4B4B57", dark:1 },
+  { id:"frog", name:"Frog", canvas:"#0A1206", surface:"#131F0C", raised:"#1A2911", ink:"#F0FFE3", ink2:"#B4CE96", ink3:"#7C9964", accent:"#A3E635", accent2:"#4ADE80", glow:"#65A30D", dark:1 },
+  { id:"nightjar", name:"Nightjar", canvas:"#12100D", surface:"#1C1814", raised:"#26201A", ink:"#FAF3E9", ink2:"#C7B7A0", ink3:"#8E7E68", accent:"#D6B27A", accent2:"#C98BA2", glow:"#8A6A3C", dark:1 },
+  { id:"onyx", name:"Onyx", canvas:"#000000", surface:"#0B0B0C", raised:"#141416", ink:"#FFFFFF", ink2:"#A1A1A6", ink3:"#66666C", accent:"#E7E7EA", accent2:"#9CA3AF", glow:"#3F3F46", dark:1 },
+  { id:"0807-light", name:"0807 Light", canvas:"#F6F4FB", surface:"#FFFFFF", raised:"#FFFFFF", ink:"#1A1626", ink2:"#5F5876", ink3:"#948EAA", accent:"#7257D6", accent2:"#4FA9E8", glow:"#B7A6FF", dark:0 },
+  { id:"0807-dark", name:"0807 Dark", canvas:"#0B0916", surface:"#141026", raised:"#1C1733", ink:"#F1EDFF", ink2:"#B0A6D6", ink3:"#7A7099", accent:"#A78BFA", accent2:"#67E8F9", glow:"#7C5CFF", dark:1 },
+  { id:"daylight", name:"Daylight", canvas:"#F2F4F9", surface:"#FFFFFF", raised:"#FFFFFF", ink:"#101827", ink2:"#58657C", ink3:"#8A94A6", accent:"#3D6FE0", accent2:"#7D5CF0", glow:"#8FB4FF", dark:0 },
+];
+const TABS = [
+  { id:"today", label:"Today", glyph:"◉" },
+  { id:"files", label:"Files", glyph:"▤" },
+  { id:"search", label:"Search", glyph:"⌕" },
+  { id:"studio", label:"Studio", glyph:"◫" },
+];
+const DESTS = [
+  { id:"calendar", label:"Calendar", note:"Months, events, .ics", g:"▦", c:"accent" },
+  { id:"feeds", label:"Feeds", note:"Unread, saved, OPML", g:"◍", c:"accent2" },
+  { id:"vault", label:"Passwords", note:"AES-256-GCM vault", g:"⌘", c:"accent" },
+  { id:"tools", label:"Tools", note:"Five offline tools", g:"✦", c:"accent2" },
+  { id:"sync", label:"Sync", note:"Prepared, not on yet", g:"⇄", c:"accent" },
+  { id:"settings", label:"Settings", note:"Palette, type, about", g:"⚙", c:"accent2" },
+];
+
+const state = { tab:"today", palette:"midnight", orbit:false, stack:[] };
+
+const el = id => document.getElementById(id);
+const current = () => state.stack[state.stack.length - 1];
+
+function applyPalette(id) {
+  const p = PALETTES.find(x => x.id === id) || PALETTES[0];
+  const root = document.documentElement.style;
+  root.setProperty("--canvas", p.canvas); root.setProperty("--surface", p.surface);
+  root.setProperty("--raised", p.raised); root.setProperty("--ink", p.ink);
+  root.setProperty("--ink2", p.ink2); root.setProperty("--ink3", p.ink3);
+  root.setProperty("--accent", p.accent); root.setProperty("--accent2", p.accent2);
+  root.setProperty("--glow", p.glow); root.setProperty("--dark", p.dark);
+  document.querySelectorAll("#palettes .pal").forEach(btn => {
+    btn.setAttribute("aria-pressed", btn.dataset.id === p.id ? "true" : "false");
+  });
+  state.palette = p.id;
+}
+
+function buildPalettes() {
+  const box = el("palettes");
+  box.innerHTML = PALETTES.map(p => `
+    <button class="pal" data-id="${p.id}" aria-pressed="${p.id === state.palette}">
+      <i style="background: linear-gradient(135deg, ${p.accent}, ${p.accent2})"></i>${p.name}
+    </button>`).join("");
+  box.addEventListener("click", e => {
+    const btn = e.target.closest(".pal");
+    if (btn) applyPalette(btn.dataset.id);
+  });
+}
+
+/* ---------- screens ---------- */
+
+const header = (eyebrow, title, sub) => `
+  <div class="pad" style="padding-top:14px">
+    <div class="eyebrow">${eyebrow}</div>
+    <h2 class="title">${title}</h2>
+    ${sub ? `<div class="sub">${sub}</div>` : ""}
+  </div>`;
+
+const screenToday = () => `
+  ${header("Tuesday · 17 November", "Good evening,<br>March", "Three notes touched today, one thing at 18:30.")}
+  <div class="pad" style="margin-top:18px">
+    <div class="card" style="background: linear-gradient(150deg, color-mix(in srgb, var(--accent) 22%, var(--surface)), var(--surface) 62%);">
+      <div class="row between">
+        <div>
+          <div class="label">Today</div>
+          <div style="font-size:26px;font-weight:640;letter-spacing:-.03em;margin-top:6px">17</div>
+          <div class="small" style="margin-top:2px">November 2026 · week 47</div>
+        </div>
+        <div style="text-align:right">
+          <div class="small">Sunset 16:52</div>
+          <div class="muted">Milan</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:16px;flex-wrap:wrap">
+        <span class="chip">3 pinned</span><span class="chip">7 unread</span><span class="chip">2 boards</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad" style="margin-top:22px">
+    <div class="row between"><span class="label">Pinned</span><span class="muted">see all</span></div>
+    <div class="stack" style="margin-top:11px">
+      ${noteCard("Aurora", "Tonight's sky is meant to be clear — worth the walk to the canal.", "journal/aurora", "12 min ago", "accent")}
+      ${noteCard("Release checklist", "Sign the build, check the release notes, tag it, ship it.", "work/release", "1 h ago", "accent2")}
+    </div>
+  </div>
+
+  <div class="pad" style="margin-top:22px">
+    <span class="label">Later today</span>
+    <div class="card tight" style="margin-top:11px">
+      ${eventRow("18:30", "Dinner with Elena", "Trattoria del Ponte", "accent")}
+      ${eventRow("21:00", "Write for an hour", "No phone on the desk", "accent2")}
+    </div>
+  </div>
+
+  <div class="pad" style="margin-top:22px">
+    <div class="row between"><span class="label">Reading</span><span class="muted">7 unread</span></div>
+    <div class="card tight" style="margin-top:11px">
+      ${feedRow("The quiet return of the personal site", "Hacker News · 2 h")}
+      ${feedRow("Why paper maps still matter", "Aeon · yesterday")}
+      ${feedRow("Notes on a smaller phone", "Daring Fireball · 2 d")}
+    </div>
+  </div>
+
+  <div class="pad" style="margin-top:22px">
+    <span class="label">Recently touched</span>
+    <div class="card tight" style="margin-top:11px">
+      ${fileRow("◫","Night drive","Whiteboard · edited 8 min ago")}
+      ${fileRow("▤","Field notes","Folder · 6 files · yesterday")}
+      ${fileRow("◍","Sourdough.comet-todo","Board · 4 of 9 done · 2 d")}
+    </div>
+  </div>`;
+
+const noteCard = (title, text, path, meta, tone) => `
+  <div class="card tight" style="cursor:pointer" onclick="openScreen('note')">
+    <div class="row between">
+      <div class="row" style="gap:8px">
+        <span class="orbicon ${tone === 'accent2' ? 'alt' : ''}" style="width:26px;height:26px;border-radius:9px;font-size:12px">▤</span>
+        <b style="font-size:13.5px">${title}</b>
+      </div>
+      <span class="muted">${meta}</span>
+    </div>
+    <div class="small" style="margin-top:9px;line-height:1.5">${text}</div>
+    <div class="muted" style="margin-top:9px;font-family:ui-monospace,monospace;font-size:10.5px">${path}.md</div>
+  </div>`;
+
+const eventRow = (time, title, place) => `
+  <div class="row" style="padding:9px 0">
+    <div style="font-family:ui-monospace,monospace;font-size:12px;color:var(--accent);width:44px">${time}</div>
+    <div>
+      <div style="font-size:13.5px;font-weight:550">${title}</div>
+      <div class="muted" style="margin-top:2px">${place}</div>
+    </div>
+  </div>`;
+
+const feedRow = (title, meta) => `
+  <div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)">
+    <div class="orbicon alt" style="width:28px;height:28px;border-radius:9px;font-size:12px">◍</div>
+    <div style="min-width:0">
+      <div style="font-size:13px;font-weight:540;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
+      <div class="muted" style="margin-top:2px">${meta}</div>
+    </div>
+  </div>`;
+
+const fileRow = (glyph, name, meta) => `
+  <div class="filerow" onclick="openScreen('files')">
+    <div class="orbicon">${glyph}</div>
+    <div><div class="name">${name}</div><div class="meta">${meta}</div></div>
+    <div class="chev">›</div>
+  </div>`;
+
+const screenFiles = () => `
+  ${header("Workspace", "Files", "Comet · 24 items")}
+  <div class="pad" style="margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <span class="pathpill">▤ Comet</span>
+    <span class="muted">2.4 GB of 5 GB</span>
+  </div>
+  <div class="chiprow" style="margin-top:14px">
+    <span class="chip on">All</span><span class="chip">Folders</span><span class="chip">Notes</span><span class="chip">Boards</span><span class="chip">Media</span>
+  </div>
+  <div class="pad" style="margin-top:16px">
+    <div class="grid2">
+      <div class="tile" onclick="openScreen('files')">
+        <span class="orbicon" style="width:30px;height:30px;font-size:14px">▤</span>
+        <div><b>journal</b><div class="muted" style="margin-top:3px">8 items</div></div>
+      </div>
+      <div class="tile" onclick="openScreen('files')">
+        <span class="orbicon alt" style="width:30px;height:30px;font-size:14px">▤</span>
+        <div><b>work</b><div class="muted" style="margin-top:3px">5 items</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="pad" style="margin-top:6px">
+    ${fileRow("▤","Aurora","Note · 384 words · pinned")}
+    ${fileRow("◫","Night drive","Whiteboard · 8 items")}
+    ${fileRow("◍","Sourdough.comet-todo","Board · 4 of 9 done")}
+    ${fileRow("▣","Field recording.m4a","Audio · 3:12")}
+    ${fileRow("▤","Reading list","Note · 1,204 words")}
+  </div>`;
+
+const screenNote = () => `
+  <div class="pillnav">
+    <div class="lens" onclick="back()">‹</div>
+    <div style="flex:1"></div>
+    <div class="lens">⋯</div>
+  </div>
+  <div class="pad note" style="margin-top:12px">
+    <div class="label">journal / aurora.md</div>
+    <h1 style="margin-top:8px">Aurora</h1>
+    <div class="row" style="gap:7px;margin:10px 0 20px;flex-wrap:wrap">
+      <span class="chip" style="font-size:11px;padding:4px 10px">#night</span>
+      <span class="chip" style="font-size:11px;padding:4px 10px">#sky</span>
+      <span class="muted" style="margin-left:auto">384 words · 2 min</span>
+    </div>
+    <div class="body">
+      <p>The forecast said <em>clear</em>, and for once it was right. By the canal the sky had that particular winter depth — not black, but a blue that goes on.</p>
+      <h3>What to bring</h3>
+      <div class="taskline done"><span class="box done"></span><span>Warm coat</span></div>
+      <div class="taskline done"><span class="box done"></span><span>Flask of tea</span></div>
+      <div class="taskline"><span class="box"></span><span>Tripod, if the wind drops</span></div>
+      <blockquote>Look north, away from the street lamps. Give your eyes fifteen minutes.</blockquote>
+      <p>Colour arrives before shape: a faint green wash low on the horizon, then bands. A phone camera will not do it — bring the small lens and set it to <code>f/2.8</code>.</p>
+    </div>
+  </div>
+  <div class="formatbar">
+    <span><b>B</b></span><span><i>I</i></span><span>“</span><span>•</span><span>⌗</span><span>☑</span><span>‹/›</span><span>🔗</span>
+  </div>`;
+
+const screenSearch = () => `
+  ${header("Everywhere", "Search", "")}
+  <div class="pad" style="margin-top:16px">
+    <div class="card tight row" style="gap:10px;padding:14px 16px">
+      <span style="color:var(--ink3)">⌕</span>
+      <span style="color:var(--ink2)">aurora</span>
+      <span style="margin-left:auto" class="muted">4</span>
+    </div>
+  </div>
+  <div class="pad" style="margin-top:16px">
+    ${fileRow("▤","Aurora","journal · 384 words")}
+    ${fileRow("◫","Night drive","whiteboard · includes “aurora”")}
+    ${fileRow("▤","Sky notes","journal · 92 words")}
+  </div>`;
+
+const screenStudio = () => `
+  ${header("Boards and whiteboards", "Studio", "Two boards, one whiteboard.")}
+  <div class="pad" style="margin-top:18px">
+    <div class="card" style="cursor:pointer" onclick="openScreen('board')">
+      <div class="row between">
+        <div class="row" style="gap:10px">
+          <span class="orbicon">◍</span>
+          <div><b style="font-size:14.5px">Sourdough</b><div class="muted" style="margin-top:3px">4 of 9 done</div></div>
+        </div>
+        <span class="lens" style="width:32px;height:32px;font-size:13px">›</span>
+      </div>
+      <div class="strength" style="margin-top:14px"><i style="width:44%"></i></div>
+      <div style="display:flex;gap:6px;margin-top:12px">
+        <span class="chip" style="font-size:11px;padding:4px 9px">Today 2</span>
+        <span class="chip" style="font-size:11px;padding:4px 9px">Next 3</span>
+        <span class="chip" style="font-size:11px;padding:4px 9px">Later 4</span>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="row between">
+        <div class="row" style="gap:10px">
+          <span class="orbicon alt">◫</span>
+          <div><b style="font-size:14.5px">Night drive</b><div class="muted" style="margin-top:3px">Whiteboard · 8 cards</div></div>
+        </div>
+        <span class="lens" style="width:32px;height:32px;font-size:13px">›</span>
+      </div>
+      <div style="margin-top:14px;border-radius:16px;border:1px dashed var(--line);height:96px;position:relative;overflow:hidden;background:color-mix(in srgb,var(--raised) 50%,transparent)">
+        <span style="position:absolute;left:14px;top:14px;width:74px;padding:7px;border-radius:9px;background:color-mix(in srgb,var(--accent) 22%,var(--surface));font-size:9.5px">theme: motorway</span>
+        <span style="position:absolute;left:104px;top:34px;width:78px;padding:7px;border-radius:9px;background:color-mix(in srgb,var(--accent2) 22%,var(--surface));font-size:9.5px">sound: rain</span>
+        <span style="position:absolute;left:50px;top:62px;width:88px;padding:7px;border-radius:9px;border:1px solid var(--line);font-size:9.5px">✓ no narration</span>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px;border-style:dashed;background:transparent;text-align:center;color:var(--ink2);padding:16px">
+      + New board or whiteboard
+    </div>
+  </div>`;
+
+const screenBoard = () => `
+  <div class="pillnav">
+    <div class="lens" onclick="back()">‹</div>
+    <div style="flex:1"></div>
+    <div class="lens solid">+</div>
+  </div>
+  <div class="pad" style="margin-top:12px">
+    <div class="eyebrow">Board · sourdough.comet-todo</div>
+    <h2 class="title" style="font-size:29px">Sourdough</h2>
+    <div class="sub">4 of 9 done · 5 left</div>
+  </div>
+  <div class="kanban" style="margin-top:18px">
+    <div class="col">
+      <div class="colhead"><span>Today</span><span>2</span></div>
+      ${task("Feed the starter","08:00")}
+      ${task("Mix the dough","11:30")}
+    </div>
+    <div class="col">
+      <div class="colhead"><span>Next</span><span>2</span></div>
+      ${task("Bulk rise","2 h")}
+      ${task("Shape","")}
+    </div>
+    <div class="col">
+      <div class="colhead"><span>Later</span><span>3</span></div>
+      ${task("Bake","250 °C")}
+      ${task("Cool on a rack","")}
+      ${task("Write it down","")}
+    </div>
+  </div>`;
+
+const task = (text, meta) => `
+  <div class="tcard">
+    <div class="row" style="gap:8px;align-items:flex-start">
+      <span class="box" style="width:14px;height:14px;border-radius:4px;margin-top:1px"></span>
+      <span>${text}</span>
+    </div>
+    ${meta ? `<div class="tiny">◷ ${meta}</div>` : ""}
+  </div>`;
+
+const screenCalendar = () => `
+  ${header("On this device", "Calendar", "November 2026 · exports .ics")}
+  <div class="pad" style="margin-top:18px">
+    <div class="card">
+      <div class="cal">
+        <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div><div class="dow">S</div>
+        ${calCells()}
+      </div>
+    </div>
+  </div>
+  <div class="pad" style="margin-top:20px">
+    <span class="label">Tuesday 17</span>
+    <div class="card tight" style="margin-top:10px">
+      ${eventRow("18:30","Dinner with Elena","Trattoria del Ponte")}
+      ${eventRow("21:00","Write for an hour","No phone on the desk")}
+    </div>
+  </div>`;
+
+function calCells() {
+  let out = "", day = 1, startCol = 5;
+  for (let i = 0; i < 35; i++) {
+    if (i < startCol) { out += `<div class="day dim">${27 + i}</div>`; continue; }
+    if (day > 30) { out += `<div class="day dim">${day - 30}</div>`; day++; continue; }
+    const cls = ["day"];
+    if (day === 17) cls.push("today");
+    if (day === 17 || day === 22 || day === 25) cls.push("dot");
+    out += `<div class="${cls.join(" ")}">${day}</div>`;
+    day++;
+  }
+  return out;
+}
+
+const screenFeeds = () => `
+  ${header("Feeds, read here", "Feeds", "7 unread · 3 feeds")}
+  <div class="chiprow" style="margin-top:14px">
+    <span class="chip on">All 7</span><span class="chip">Saved</span><span class="chip">Hacker News</span><span class="chip">Aeon</span>
+  </div>
+  <div class="pad" style="margin-top:16px">
+    <div class="card tight">
+      ${feedRow("The quiet return of the personal site","Hacker News · 2 h")}
+      ${feedRow("Why paper maps still matter","Aeon · yesterday")}
+      ${feedRow("Notes on a smaller phone","Daring Fireball · 2 d")}
+      ${feedRow("The last lighthouse keeper","Aeon · 3 d")}
+    </div>
+    <div class="card tight row between" style="margin-top:12px">
+      <div><b style="font-size:13px">OPML</b><div class="muted" style="margin-top:3px">Import or export your feeds</div></div>
+      <span class="chip">Export</span>
+    </div>
+  </div>`;
+
+const screenVault = () => `
+  ${header("AES-256-GCM", "Passwords", "Locked · 14 entries")}
+  <div class="pad" style="margin-top:18px">
+    <div class="card">
+      <div class="row" style="gap:10px">
+        <span class="orbicon">⌘</span>
+        <div><b style="font-size:14px">One password, one vault</b><div class="muted" style="margin-top:3px">PBKDF2 · 600,000 rounds</div></div>
+      </div>
+      <div class="strength" style="margin-top:14px"><i></i></div>
+      <div class="row" style="gap:8px;margin-top:14px">
+        <span class="chip on" style="flex:1;text-align:center;padding:10px">Unlock</span>
+        <span class="chip" style="flex:1;text-align:center;padding:10px">Recovery code</span>
+      </div>
+    </div>
+  </div>
+  <div class="pad" style="margin-top:20px">
+    <span class="label">Inside, when open</span>
+    <div style="margin-top:10px" class="vaultrow">
+      <span class="orbicon alt">✦</span>
+      <div><div style="font-size:13.5px;font-weight:550">MarchTheDev · GitHub</div><div class="muted" style="font-family:ui-monospace,monospace;margin-top:2px">••••••••••••</div></div>
+      <span class="muted" style="margin-left:auto">⇄</span>
+    </div>
+    <div class="vaultrow">
+      <span class="orbicon">✦</span>
+      <div><div style="font-size:13.5px;font-weight:550">Home router</div><div class="muted" style="font-family:ui-monospace,monospace;margin-top:2px">••••••••</div></div>
+      <span class="muted" style="margin-left:auto">⇄</span>
+    </div>
+    <div class="card tight" style="margin-top:12px;background:transparent;border-style:dashed">
+      <div class="row between"><span class="small">Backups stay encrypted</span><span class="chip">Export</span></div>
+    </div>
+  </div>`;
+
+const screenTools = () => `
+  ${header("Offline", "Tools", "Arithmetic on this device")}
+  <div class="chiprow" style="margin-top:14px">
+    <span class="chip on">Calculator</span><span class="chip">Convert</span><span class="chip">Dates</span><span class="chip">Percent</span><span class="chip">Password</span>
+  </div>
+  <div class="pad" style="margin-top:18px">
+    <div class="card">
+      <div style="text-align:right;font-family:ui-monospace,monospace;color:var(--ink3);font-size:15px">128 ÷ 4 + 12</div>
+      <div style="text-align:right;font-size:38px;font-weight:600;letter-spacing:-.03em;margin:6px 0 16px">44</div>
+      <div class="keypad">
+        <div class="key op">C</div><div class="key op">(</div><div class="key op">)</div><div class="key op">÷</div>
+        <div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key op">×</div>
+        <div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key op">−</div>
+        <div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key op">+</div>
+        <div class="key">0</div><div class="key">.</div><div class="key">%</div><div class="key eq">=</div>
+      </div>
+    </div>
+  </div>`;
+
+const screenSync = () => `
+  ${header("Coming later", "Sync", "Your workspace, on every device.")}
+  <div class="pad" style="margin-top:18px">
+    <div class="card" style="background:linear-gradient(150deg, color-mix(in srgb, var(--accent2) 20%, var(--surface)), var(--surface) 70%)">
+      <div class="row" style="gap:12px">
+        <span class="orbicon alt" style="width:40px;height:40px;font-size:18px">⇄</span>
+        <div><b style="font-size:15px">Not switched on yet</b><div class="muted" style="margin-top:4px">The app is already keeping the record it will need.</div></div>
+      </div>
+      <div class="setting" style="margin-top:14px">
+        <span>Sync this workspace</span><span class="switch"></span>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">This device</div>
+      <div class="row between" style="margin-top:10px"><span class="small">Name</span><span class="small">Aurora-iPhone</span></div>
+      <div class="row between" style="margin-top:8px"><span class="small">Journal</span><span class="small">128 changes</span></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">In place</div>
+      <div class="small" style="margin-top:10px;line-height:1.7">Relative paths as identity · a journal of facts, deletes included · a versioned profile · atomic writes · a device name</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">To come</div>
+      <div class="small" style="margin-top:10px;line-height:1.7">A remote you choose · prepare, apply, publish · conflict copies · background refresh</div>
+    </div>
+  </div>`;
+
+const screenSettings = () => `
+  ${header("Comet 1.0", "Settings", "This device, this workspace.")}
+  <div class="pad" style="margin-top:18px">
+    <div class="card">
+      <div class="label">Appearance</div>
+      <div class="swatches" style="margin-top:12px">
+        ${PALETTES.slice(0,8).map(p => `<div class="sw ${p.id === state.palette ? 'on' : ''}" onclick="applyPalette('${p.id}')"><i style="background:linear-gradient(135deg,${p.accent},${p.accent2})"></i>${p.name}</div>`).join("")}
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">Reading and writing</div>
+      <div class="setting"><span>Text size</span><span class="muted">100%</span></div>
+      <div class="setting"><span>Editor type</span><span class="muted">17 pt</span></div>
+      <div class="setting"><span>Check spelling</span><span class="switch on"></span></div>
+      <div class="setting"><span>Word count</span><span class="switch on"></span></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">Behaviour</div>
+      <div class="setting"><span>Haptics</span><span class="switch on"></span></div>
+      <div class="setting"><span>Weeks start on Monday</span><span class="switch on"></span></div>
+      <div class="setting"><span>Reopen the last workspace</span><span class="switch on"></span></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="row between"><span class="small">Comet · GPL-3.0</span><span class="chip">GitHub</span></div>
+    </div>
+  </div>`;
+
+const SCREENS = {
+  today: screenToday, files: screenFiles, search: screenSearch, studio: screenStudio,
+  note: screenNote, board: screenBoard, calendar: screenCalendar, feeds: screenFeeds,
+  vault: screenVault, tools: screenTools, sync: screenSync, settings: screenSettings,
+};
+
+/* ---------- chrome ---------- */
+
+function renderChrome() {
+  el("dockwrap").style.display = state.stack.length ? "none" : "flex";
+  el("dockwrap").innerHTML = `
+    <div class="dock">
+      ${TABS.map(t => `<div class="tab ${state.tab === t.id && !state.stack.length ? 'on' : ''}" data-tab="${t.id}"><span class="glyph">${t.glyph}</span><span>${t.label}</span></div>`).join("")}
+    </div>
+    <div class="orb" id="orbBtn"><div class="rings"></div></div>`;
+  el("dockwrap").addEventListener("click", e => {
+    const tab = e.target.closest(".tab");
+    if (tab) { state.tab = tab.dataset.tab; state.stack = []; render(); return; }
+    if (e.target.closest("#orbBtn")) toggleOrbit();
+  });
+}
+
+function orbitMarkup() {
+  return `
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Everything else</div>
+        <div style="font-size:27px;font-weight:640;letter-spacing:-.03em;margin-top:6px">Orbit</div>
+      </div>
+      <div class="lens" id="closeOrbit">×</div>
+    </div>
+    <div class="orbitgrid">
+      ${DESTS.map(d => `
+        <div class="dest" data-dest="${d.id}">
+          <span class="g orbicon ${d.c === 'accent2' ? 'alt' : ''}">${d.g}</span>
+          <div><b>${d.label}</b><span>${d.note}</span></div>
+        </div>`).join("")}
+    </div>
+    <div class="card tight" style="margin-top:auto">
+      <div class="row between">
+        <div><div class="label">Workspace</div><div style="font-size:13.5px;font-weight:550;margin-top:4px">Comet</div></div>
+        <span class="chip">Switch</span>
+      </div>
+    </div>`;
+}
+
+function toggleOrbit(force) {
+  state.orbit = force === undefined ? !state.orbit : force;
+  const box = el("orbit");
+  box.classList.toggle("open", state.orbit);
+  box.innerHTML = state.orbit ? orbitMarkup() : "";
+  if (state.orbit) {
+    box.querySelector("#closeOrbit").onclick = () => toggleOrbit(false);
+    box.querySelectorAll("[data-dest]").forEach(d => {
+      d.onclick = () => { toggleOrbit(false); openDest(d.dataset.dest); };
+    });
+  }
+}
+
+function openDest(id) { state.stack = [id]; render(); }
+function openScreen(id) { state.stack = [id]; render(); }
+function back() { state.stack = []; render(); }
+
+function render() {
+  const id = state.stack.length ? state.stack[state.stack.length - 1] : (SCREENS[state.tab] ? state.tab : "today");
+  const view = el("view");
+  view.innerHTML = SCREENS[id]();
+  view.scrollTop = 0;
+  renderChrome();
+  if (state.orbit) toggleOrbit(true);
+}
+
+buildPalettes();
+applyPalette("midnight");
+render();
+window.openScreen = openScreen;
+</script>
+</body>
+</html>

@@ -110,3 +110,58 @@ jobs:
           path: out/Comet-unsigned.ipa
           if-no-files-found: error
           retention-days: 30
+
+  tests:
+    name: Unit tests
+    runs-on: macos-15
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the project
+        run: xcodegen generate
+
+      - name: Run the tests on a simulator
+        run: |
+          set -o pipefail
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+import json, sys
+devices = json.load(sys.stdin)["devices"]
+for runtime in sorted(devices, reverse=True):
+    if "iOS" not in runtime:
+        continue
+    for device in devices[runtime]:
+        if device["name"].startswith("iPhone"):
+            print(device["udid"]); raise SystemExit
+raise SystemExit(1)
+')
+          echo "simulator: $UDID"
+          xcodebuild test \
+            -project CometMobile.xcodeproj \
+            -scheme Comet \
+            -destination "id=$UDID" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee .tests.log
+
+      - name: Surface test and compile errors
+        if: failure()
+        run: |
+          if [ -f .tests.log ]; then
+            grep -E "error: |failed|XCTAssert" .tests.log | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+          fi
+          exit 1
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-log
+          path: .tests.log
+          if-no-files-found: ignore
+          retention-days: 14

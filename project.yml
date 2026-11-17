@@ -47,6 +47,18 @@ targets:
         SUPPORTS_MACCATALYST: NO
         SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: NO
 
+  CometTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Comet
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.march.comet.tests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   Comet:
     build:
@@ -54,5 +66,9 @@ schemes:
         Comet: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - CometTests
     archive:
       config: Release
