@@ -128,17 +128,8 @@ jobs:
       - name: Run the tests on a simulator
         run: |
           set -o pipefail
-          UDID=$(xcrun simctl list devices available --json | python3 -c '
-import json, sys
-devices = json.load(sys.stdin)["devices"]
-for runtime in sorted(devices, reverse=True):
-    if "iOS" not in runtime:
-        continue
-    for device in devices[runtime]:
-        if device["name"].startswith("iPhone"):
-            print(device["udid"]); raise SystemExit
-raise SystemExit(1)
-')
+          UDID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
+          test -n "$UDID"
           echo "simulator: $UDID"
           xcodebuild test \
             -project CometMobile.xcodeproj \
