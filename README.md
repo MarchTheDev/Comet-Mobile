@@ -120,6 +120,19 @@ open CometMobile.xcodeproj
 
 Set a team in *Signing & Capabilities*, then run.
 
+### Tests
+
+```sh
+xcodegen generate
+xcodebuild test -project CometMobile.xcodeproj -scheme Comet \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+They cover the calculator, the Markdown subset, both board formats, the calendar
+export, feed parsing and OPML, the workspace store's containment and naming, the
+tolerant profile reader, and the vault envelope. CI runs them on a simulator
+beside every build; the workflow picks whichever iPhone the runner has.
+
 ## Repository layout
 
 ```
@@ -132,11 +145,12 @@ CometApp/
     Today/ Files/ Search/ Studio/ Note/ Calendar/ Feeds/ Vault/ Tools/
     Reader/ Settings/ Shared/
   Resources/           Info.plist, asset catalog and app icon
+Tests/                 unit tests for the model, stores and formats
 project.yml            XcodeGen spec (the .xcodeproj is generated)
 scripts/               build and verify the IPA
 docs/                  design notes and the sync plan
 preview/               the design preview, in a browser
-.github/workflows/     CI: compile, package, publish the draft release
+.github/workflows/     CI: compile, test, package, publish the draft release
 ```
 
 ### How a screen is put together
