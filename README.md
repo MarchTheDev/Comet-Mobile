@@ -10,42 +10,49 @@ one app, its own interface, and no account anywhere.
 </div>
 
 Comet on the desktop is a folder of ordinary files with a workspace drawn around
-it. This is that workspace, written again in SwiftUI for a phone: not a window
-onto the desktop app, not a responsive version of it, and not one screen of it
-with a bar bolted on. It has its own shape.
+it. This is that workspace in SwiftUI, for a phone: the desktop's palettes, its
+font, its panels and its vocabulary, laid out for a thumb. It is not a window
+onto the desktop app and not a web view with a bar bolted on. It is the same
+design, at the size of a hand.
 
 ## The idea
 
-Three things decide what the app looks like.
+The app is a phone-shaped Comet, not a phone-shaped interpretation of one. Where
+the desktop app has a sidebar, a cover card, a document header and a set of
+small bordered panels, this app has the same — rearranged for a thumb rather
+than a mouse, but drawn from the same measurements.
 
-**No bar.** There is no navigation bar anywhere. A screen begins with its own
-content — a large title inside the scroll, a path pill, a document's first line.
-Chrome is three floating things and nothing else: a dock at the bottom, an orb
-beside it that opens everything else, and a back or close lens when there is
-somewhere to go.
+**The desktop's palette, value for value.** Canvas, panel, panel-soft, border,
+border-strong, text, secondary, muted, accent, accent-ink, accent-soft: the
+fourteen themes in Settings carry exactly the colours the desktop app uses, so a
+workspace looks the same on a phone and on a monitor. `System` follows the
+appearance.
 
-**Palettes, not a theme switch.** Sixteen named worlds — Midnight, Aurora,
-Ember, Sakura, Matcha, Navy, Emerald, Rubellite, Gothic, Frog, Nightjar, Onyx,
-0807 Light, 0807 Dark, Daylight, and Auto — each carrying its own canvas,
-surface, ink, two accents and glow. Everything, including the sheets and the
-keyboard-adjacent controls, is painted from those eight values. The result is
-that Comet looks like itself in daylight and at 2 a.m., not like a grey app with
-a tint.
+**The desktop's type.** Manrope, carried in the bundle under the SIL Open Font
+License, in the same weights the desktop uses — 800 for titles and eyebrows, 700
+for labels, 500 for reading. Headings are tight and small, the way they are on
+the desktop, rather than generous the way they are in iOS marketing shots.
 
-**One hand.** Buttons sit in thumb reach. The dock's lens slides rather than
-blinks. Lists arrive staggered. Sheets spring from the bottom edge with a
-grabber. Every press, drop, tick and edge answers through the Taptic Engine.
-Nothing important lives in a corner.
+**Flat panels, not glass.** Cards are one-pixel-bordered surfaces at a 12-point
+corner radius with a barely-there shadow. Buttons are 38-point rectangles with
+an 8-point radius. Chips are small, square-shouldered and quiet. Nothing blurs,
+nothing glows, and there is no gradient anywhere except the cover card, which is
+the accent colour, as on the desktop.
+
+**No bar at the top.** That still holds. The desktop's sidebar becomes a bar at
+the bottom of the screen: Today, Files, Search, Studio, a grid that opens
+everything else, and the accent `+` that makes a note, a board, a whiteboard or
+a folder. Titles live inside the content, above the thing they name.
 
 ## What is inside
 
 | Surface | What it does |
 | --- | --- |
-| **Today** | Pinned notes as cards, today's events, unread reading, what you touched last, and four doors to the rest. |
+| **Today** | A cover card with the date and the workspace, pinned notes, today's events, unread reading, what you touched last, and four doors to the rest. |
 | **Files** | The folder itself: a path pill, filter chips (All / Folders / Notes / Boards / Media), tag chips, folders as tiles, files as rows, sort, pin, favourite, tags, rename, move, delete, import. |
 | **Search** | Filenames, note text and boards, matched as you type, with the path under every result. |
 | **Studio** | To-do boards and whiteboards on one bench, each with a live miniature. |
-| **Note** | Markdown in two modes: reading, and writing with a floating formatting bar that edits around the cursor. Autosaves; shows words and reading time. |
+| **Note** | Markdown in two modes: reading, and writing with a formatting bar that edits around the cursor. Autosaves; shows words and reading time. |
 | **Boards** | Kanban lists you can tick in place, move between lists, and edit in a sheet; and a whiteboard you can pan, pinch, draw on, and fill with text, to-do, shape and link cards. |
 | **Calendar** | Months, days, events and notes, on the device, exporting a standard `.ics`. |
 | **Feeds** | RSS, Atom and JSON feeds parsed locally, unread counts, saved articles, OPML in and out, and a reader in Comet's own type. |
@@ -53,7 +60,7 @@ Nothing important lives in a corner.
 | **Tools** | Calculator, unit and temperature conversion, dates, percentages and tax, password generator. |
 | **Readers** | Images with pinch and zoom, PDFs with PDFKit, EPUB books chapter by chapter, audio, video and `.url` shortcuts. |
 | **Sync** | The change journal is running and this screen shows exactly what is in place and what the update will add. |
-| **Settings** | Palette, text size, editor type, haptics, week start, workspace, about. |
+| **Settings** | The desktop's fourteen palettes plus System, text size, editor type, haptics, week start, the workspace (with a check that the folder is really writable), about. |
 
 ### Comet's formats, unchanged
 
@@ -174,8 +181,9 @@ every path stays inside the chosen folder and writes atomically.
 
 ## Design notes
 
-[`docs/design.md`](docs/design.md) covers the layout rules, the palette system,
-type, motion and the reasons the chrome is what it is. [`preview/`](preview/)
+[`docs/design.md`](docs/design.md) covers the mapping from the desktop's CSS
+variables to the app's palette, the type scale, the chrome and the reasons it
+sits where it does. [`preview/`](preview/)
 contains a browser preview of the same screens for looking at the design without
 a device.
 

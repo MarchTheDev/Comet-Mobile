@@ -254,8 +254,10 @@ struct WhiteboardScreen: View {
                 Image(systemName: "plus")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(theme.onAccent)
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(theme.accentGradient))
+                    .frame(width: 36, height: 34)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(theme.accent)
+                    )
             }
         }
         .padding(.horizontal, 16)
@@ -271,9 +273,11 @@ struct WhiteboardScreen: View {
             Image(systemName: symbol)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(mode == target ? theme.onAccent : theme.secondary)
-                .frame(width: 40, height: 34)
+                .frame(width: 38, height: 32)
                 .background {
-                    if mode == target { Capsule().fill(theme.accentGradient) }
+                    if mode == target {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous).fill(theme.accent)
+                    }
                 }
         }
         .buttonStyle(PressableStyle(scale: 0.94, haptic: nil))

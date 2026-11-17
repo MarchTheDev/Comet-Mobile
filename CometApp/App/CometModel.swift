@@ -760,6 +760,11 @@ final class CometModel: ObservableObject {
     // MARK: - Opening
 
     func open(_ entry: Entry) {
+        // A folder is somewhere to go, not something to open over the screen.
+        if entry.isFolder {
+            openFolder(entry)
+            return
+        }
         openedFile = entry
         recentPaths.removeAll { $0 == entry.relativePath }
         recentPaths.insert(entry.relativePath, at: 0)

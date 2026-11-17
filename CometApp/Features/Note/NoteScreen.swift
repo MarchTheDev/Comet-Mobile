@@ -272,13 +272,15 @@ struct NoteScreen: View {
                             Image(systemName: "pencil")
                                 .font(.system(size: 13, weight: .bold))
                             Text("Edit")
-                                .font(type.label(14, weight: .bold))
+                                .font(type.label(13, weight: .bold))
                         }
                         .foregroundStyle(theme.onAccent)
-                        .padding(.horizontal, 18)
-                        .frame(height: 44)
-                        .background(Capsule().fill(theme.accentGradient))
-                        .shadow(color: theme.accent.opacity(0.35), radius: 12, y: 6)
+                        .padding(.horizontal, 16)
+                        .frame(height: 38)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(theme.accent)
+                        )
                     }
                     .buttonStyle(PressableStyle())
                 }
@@ -298,8 +300,15 @@ struct NoteScreen: View {
             modeButton("Read", symbol: "book", target: .read)
             modeButton("Write", symbol: "pencil.line", target: .write)
         }
-        .padding(4)
-        .glassPanel(radius: 24)
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(theme.soft)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(theme.hairline, lineWidth: 1)
+                )
+        )
     }
 
     private func modeButton(_ label: String, symbol: String, target: Mode) -> some View {
@@ -314,12 +323,14 @@ struct NoteScreen: View {
                 Text(label)
                     .font(type.label(13, weight: .semibold))
             }
-            .foregroundStyle(mode == target ? theme.onAccent : theme.secondary)
-            .padding(.horizontal, 13)
-            .frame(height: 36)
+            .foregroundStyle(mode == target ? theme.accentInk : theme.tertiary)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
             .background {
                 if mode == target {
-                    Capsule().fill(theme.accentGradient)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(theme.surface)
+                        .shadow(color: theme.softShadow, radius: 3, x: 0, y: 1)
                 }
             }
         }

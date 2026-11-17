@@ -1,117 +1,116 @@
 # Design
 
-The app is not a phone-shaped version of the desktop window. It has no navigation
-bar, no sidebar, no toolbar, and no table of contents. What replaces them is a
-set of rules small enough to hold in mind.
+The app follows the desktop app's visual language. The two are laid out for
+different hands — a bottom bar instead of a sidebar, one column instead of two —
+but they are painted with the same values, set in the same type, and built from
+the same small vocabulary of panels.
 
-## The three floating things
+## The mapping
 
-1. **The dock**, at the bottom: Today, Files, Search, Studio. Three glass
-   capsules with a sliding lens behind the current one. It floats over the
-   content with a gradient scrim behind it, so lists can scroll beneath without
-   being cut by a bar.
-2. **The orb**, beside the dock: one circle, slightly larger, carrying the
-   accent gradient. It opens everything the dock does not hold — calendar,
-   feeds, vault, tools, sync, settings — as an overlay of destinations, not a
-   sidebar.
-3. **The lens**, top-left, in screens that go deeper: a 38-point circle with a
-   chevron, or an × when a screen is a detour rather than a place.
+The desktop app's stylesheet defines twelve variables per theme:
 
-Nothing else is fixed. Titles live in the scroll and leave when the content
-does.
+```
+--canvas  --panel  --panel-soft  --panel-raised
+--border  --border-strong
+--text    --text-secondary  --text-muted
+--accent  --accent-ink  --accent-soft
+```
 
-## Rhythm
+`Palette` in `CometApp/Design/Palette.swift` carries those twelve, with those
+names, for the same fourteen themes: the default light and dark Comet palettes,
+Emerald, Rubellite, Navy, 0807 Light, 0807 Dark, Sakura, Matcha, Ember, Gothic,
+Frog, Nightjar and Onyx — plus `System`, which chooses between the two Comet
+palettes with the device appearance. The hex values are copied from
+`web/src/index.css` and `:root[data-palette="…"]`, so switching theme on one
+device and opening the workspace on the other is not a change of colour scheme.
 
-Screens are built from four moves, in order:
+`CometTheme` resolves a palette into everything a view paints with and travels
+down through the environment as `\.comet`. No view names a colour.
 
-- A **module header** or **screen header**: a small uppercase eyebrow, a large
-  title in the display face, and a subtitle that says something true.
-- A **hero card** for the one thing that matters on that screen — today's date,
-  the folder path, the current month.
-- **Cards** at 26–30 pt radius with a hairline and a soft lift, separated by 14
-  to 18 points, sectioned by uppercase labels.
-- A **trailing accessory** in the header: a glass circle for a secondary action,
-  a filled gradient circle for the primary one.
-
-Every screen follows that, which is why none of them needs a bar to explain
-itself.
-
-## Palettes
-
-Sixteen palettes, each a complete world of eight values: `canvasGradient`,
-`surface`, `raised`, `ink`, `secondary`, `tertiary`, `accent`, `accentTwo`,
-`hairline`, plus `isDark`. Nothing in the app names a colour directly; every
-view reads `@Environment(\.comet)`.
-
-| Palette | Idea |
+| Desktop | App |
 | --- | --- |
-| Midnight | Deep blue-black, cold cyan accent. The default. |
-| Aurora | Teal and violet over near-black. |
-| Ember | Warm charcoal, amber and rust. |
-| Sakura | Paper pink, ink dark, blossom accent. |
-| Matcha | Muted green over bone. |
-| Navy / Emerald / Rubellite | Single-hue worlds, each with its own shadow. |
-| Gothic / Frog / Nightjar / Onyx | Dark, saturated, a little strange. |
-| 0807 Light / 0807 Dark | The desktop app's pair, for continuity. |
-| Daylight | Bright, high contrast, legible outdoors. |
-| Auto | Follows the system, resolving to Midnight or Daylight. |
-
-Because the palette supplies both accents and both surfaces, a sheet, a chip, a
-selected dock lens and the aurora background all change together. There is no
-half-themed corner.
+| `--canvas` | `theme.canvas` |
+| `--panel` | `theme.surface` |
+| `--panel-soft` | `theme.soft` |
+| `--panel-raised` | `theme.raised` |
+| `--border` | `theme.hairline`, `theme.border` |
+| `--border-strong` | `theme.strongLine` |
+| `--text` | `theme.ink` |
+| `--text-secondary` | `theme.secondary` |
+| `--text-muted` | `theme.tertiary` |
+| `--accent` | `theme.accent` |
+| `--accent-ink` | `theme.accentInk` |
+| `--accent-soft` | `theme.accentSoft` |
 
 ## Type
 
-One family for the interface (SF Pro), one for reading (New York via
-`Font.system(.serif)`), one mono for code, calculation and paths. Three sizes
-matter:
+The desktop sets everything in Manrope. The app carries five static cuts of the
+font — 400, 500, 600, 700, 800 — under `CometApp/Resources/Fonts/`, with the SIL
+Open Font License beside them, and registers them in `UIAppFonts`. `CometType`
+maps a weight to the matching cut and applies the scale the user sets in
+Settings:
 
-- **Display** — 28 to 40 pt, tight tracking, for the one title per screen.
-- **Prose** — 16 to 17 pt with generous line spacing for notes and articles.
-- **Label** — 10.5 to 13 pt, uppercase with wide tracking for eyebrows and
-  section labels.
+- **Display** — page titles, 800 weight, tight tracking, 22–30 pt.
+- **Title** — panel headings, 600–700, 13–16 pt.
+- **Label** — eyebrows and section labels, 700–800, 9.5–12 pt, uppercase with
+  0.1em tracking.
+- **Prose** — reading, 500, 14 pt with 1.9 line height.
+- **Mono** — paths, counts, code.
 
-`CometSettings.textScale` multiplies the whole scale from 85% to 125% and is
-applied through the environment, so no view can forget it.
+If the font is ever missing from the bundle the type falls back to the system
+face rather than failing to draw.
 
-## Motion
+## Surfaces
 
-Three curves, no more:
+Three shapes, and no others:
 
-- `Motion.snappy` (0.28 s, 0.86 damping) for selection, presses and sheet
-  contents.
-- `Motion.gentle` (0.45 s) for palette changes, expands and layout.
-- Implicit spring for cards appearing, staggered by 40 ms per row through
-  `Stagger`, capped so a long list does not become a slideshow.
+- **Panel** — `theme.surface`, 1 pt `--border`, 12 pt radius, a shadow of
+  `0 4px 14px` at six percent. Everything is a panel: a card, a sheet row, a
+  list, a toolbar.
+- **Inset** — `theme.soft` with the same border, for fields, calendar cells and
+  kanban columns.
+- **Accent fill** — `theme.accent` with white ink, for the one primary action on
+  a screen: the `+` in the bar, New item, Unlock, Save.
 
-The aurora background drifts on a slow timeline — 40 seconds per cycle — which
-is only visible if you look for it, which is the point.
+The corner radius never exceeds 14 points. `cometCard(radius:)` clamps it, so a
+screen written against an older, rounder design still comes out flat.
 
-## Touch
+## Chrome
 
-- Dock and orb sit in the bottom fifth of the screen.
-- Every interactive element is at least 38 points, most are 44.
-- Primary actions are on the right of headers and the bottom of sheets.
-- Sheets use a 34 pt corner radius, a grabber, and the palette's own surface, so
-  a sheet looks like it belongs to the screen behind it.
-- Long-press is never the only way to reach something: every context menu has an
-  equivalent in a sheet.
+There is no navigation bar. The screen starts with its own content.
 
-## Haptics
+- **The bar at the bottom** is the desktop's sidebar, flattened: the four
+  surfaces, a grid button for the rest, and the accent `+`. It is flush with the
+  bottom edge, one pixel-bordered on top, and the same colour as the panels.
+  The selected item is an `--accent-soft` rectangle with `--accent-ink` text —
+  the desktop's `.nav-item.active`.
+- **The header inside the scroll** is the desktop's document header: an
+  eyebrow in `--text-muted` at 9.5 pt, a title in `--text` at 26–30 pt, a
+  subtitle in `--text-secondary`, and small square buttons on the right.
+- **The cover card** on Today is the desktop's `.cover-card`: a filled accent
+  panel carrying the date, the greeting and the workspace, with light ink.
+- **Sheets** are panels: the canvas colour, a 14 pt top radius, a grabber, a
+  title at 20–22 pt and rows that are panels themselves.
 
-`Haptics.select()` on a chip or a dock lens, `Haptics.press()` on a primary
-action, `Haptics.drop()` when a drag lands, `Haptics.warn()` on a failure, and a
-single tick on completing a to-do. They are disabled by one switch in Settings,
-and the model is where the truth is kept.
+## Motion and touch
+
+Motion is small and quick: a 0.2 s ease for selection, 0.32 s for sheets, a
+short stagger for lists. Presses scale to 0.97 rather than bouncing. Haptics
+answer selection, presses, drops and errors, and one switch turns them off.
+
+Every control is at least 34 points, the primary action is never in a corner,
+and long-press never carries an action that is not also on a visible button.
 
 ## What was rejected
 
-- **A top bar.** It would have been the honest thing to port, and the user asked
-  for the opposite.
-- **A tab bar as the whole navigation.** Four tabs cannot hold thirteen
-  surfaces, and a fifth "More" tab is a drawer with extra steps. Hence the orb.
-- **A desktop two-pane layout on iPad.** The iPad gets more room, larger cards
-  and wider margins — not a second pane. Portrait and landscape are the same app.
+- **A top bar.** Even now that the app follows the desktop's design, the desktop
+  header does not become an iOS navigation bar; the title still scrolls with the
+  content.
+- **The mountain cover photograph.** The desktop's cover card uses a picture.
+  The app uses the palette's accent instead, so a theme change repaints the
+  whole screen and no stock image ships in the bundle.
+- **Glass and blur.** Beautiful on a marketing page; not what the desktop looks
+  like. The app is flat panels and borders.
 - **A web view.** The first attempt embedded the desktop front end and hid its
   chrome. Something inside a shim still moves, sizes and scrolls like a website.
   This app draws its own everything.
