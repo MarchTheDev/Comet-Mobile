@@ -240,10 +240,13 @@ enum FeedDate {
 enum HTMLText {
     static func plain(_ html: String, limit: Int = 400) -> String {
         guard !html.isEmpty else { return "" }
+        // Scripts, styles and event handlers are dropped before the tags are, so
+        // a feed cannot put its code in front of the reader as text.
+        let text = HTML.stripActiveContent(html)
         var output = ""
         var insideTag = false
         var lastWasSpace = false
-        for character in html {
+        for character in text {
             if character == "<" { insideTag = true; continue }
             if character == ">" {
                 insideTag = false
@@ -263,9 +266,14 @@ enum HTMLText {
             lastWasSpace = false
             if output.count > limit + 80 { break }
         }
-        let collapsed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        if collapsed.count <= limit { return FeedXMLDelegate.decodeEntities(collapsed) }
-        return FeedXMLDelegate.decodeEntities(String(collapsed.prefix(limit))) + "…"
+        var plain = FeedXMLDelegate.decodeEntities(output)
+        plain = plain.replacingOccurrences(of: "\u{00A0}", with: " ")
+        while plain.contains("  ") {
+            plain = plain.replacingOccurrences(of: "  ", with: " ")
+        }
+        plain = plain.trimmingCharacters(in: .whitespacesAndNewlines)
+        if plain.count <= limit { return plain }
+        return String(plain.prefix(limit)) + "…"
     }
 }
 

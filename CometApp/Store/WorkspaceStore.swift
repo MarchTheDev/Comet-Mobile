@@ -189,8 +189,13 @@ final class WorkspaceStore {
             try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         }
         let data = Data(contents.utf8)
+        guard !FileManager.default.fileExists(atPath: url.path) else {
+            throw WorkbookError("An item with that name already exists.")
+        }
         do {
-            try data.write(to: url, options: [.withoutOverwriting, .atomic])
+            // Atomic, not withoutOverwriting: the two cannot be combined, and the
+            // existence check above is what keeps a file from being replaced.
+            try data.write(to: url, options: .atomic)
         } catch {
             throw WorkbookError("This file could not be created: \(error.localizedDescription)")
         }
