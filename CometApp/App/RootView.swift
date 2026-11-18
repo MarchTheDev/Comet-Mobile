@@ -367,8 +367,10 @@ struct NewItemSheet: View {
             entry = nil
         }
         guard let entry else {
-            // The model has already put the reason in the alert; keeping the
-            // sheet up means the name can be fixed without starting over.
+            // The model has put the reason in the root's alert. Close first:
+            // an alert raised while a sheet is up belongs to the sheet, and
+            // this one is owned by the shell.
+            dismiss()
             return
         }
         name = ""

@@ -130,34 +130,42 @@ final class ModelTests: XCTestCase {
 
     // MARK: - Paths
 
-    /// The bug this guards against: a workspace reached through a symlink (iOS
-    /// hands out `/var/...` for a container whose real path is
-    /// `/private/var/...`) used to fail the prefix test for every name that did
-    /// not exist yet, so creating anything answered "That name is not allowed".
-    func testCreatingWorksWhenTheWorkspaceIsReachedThroughASymlink() throws {
-        let real = try temporaryFolder()
-        let link = FileManager.default.temporaryDirectory
+    /// The bug this guards against: iOS hands out `/var/...` for a container
+    /// whose real path is `/private/var/...`, and the workspace used to compare
+    /// standardized paths with `hasPrefix` — which failed for every name that
+    /// did not exist yet, so creating anything answered "That name is not
+    /// allowed". The folder below is reached through a symlinked parent, the
+    /// way a container is.
+    func testCreatingWorksWhenTheWorkspaceSitsUnderASymlinkedPath() throws {
+        let realRoot = try temporaryFolder()
+        let folder = realRoot.appendingPathComponent("Workspace", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let link = realRoot.deletingLastPathComponent()
             .appendingPathComponent("comet-link-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createSymbolicLink(at: link,
-                                                  withDestinationURL: real)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: realRoot)
         defer {
             try? FileManager.default.removeItem(at: link)
-            try? FileManager.default.removeItem(at: real)
+            try? FileManager.default.removeItem(at: realRoot)
         }
 
+        let throughLink = link.appendingPathComponent("Workspace", isDirectory: true)
         let store = WorkspaceStore()
-        store.open(url: link)
+        store.open(url: throughLink)
+
         let entry = try store.createFile(folder: "", name: "Linked.md", contents: "hello")
         XCTAssertEqual(entry.relativePath, "Linked.md")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: real.appendingPathComponent("Linked.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Linked.md").path))
         XCTAssertEqual(try store.readText(entry.relativePath), "hello")
 
         let nested = try store.createFolder(folder: "", name: "Deep")
         let inside = try store.createFile(folder: nested.relativePath, name: "In.md", contents: "in")
         XCTAssertEqual(inside.relativePath, "Deep/In.md")
 
-        // Listing must agree with creating: both sides name the same file.
+        // Listing must agree with creating, however the path is spelled.
         XCTAssertTrue(store.scan().contains { $0.relativePath == "Deep/In.md" })
+        // And a child reached by its real path is still named inside the root.
+        XCTAssertEqual(store.relativePath(of: folder.appendingPathComponent("Deep/In.md")),
+                       "Deep/In.md")
     }
 
     func testTheModelCanStillCreateAfterOpeningASymlinkedWorkspace() throws {
