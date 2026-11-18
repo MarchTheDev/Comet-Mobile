@@ -72,18 +72,26 @@ Three shapes, and no others:
 - **Accent fill** — `theme.accent` with white ink, for the one primary action on
   a screen: the `+` in the bar, New item, Unlock, Save.
 
-The corner radius never exceeds 14 points. `cometCard(radius:)` clamps it, so a
-screen written against an older, rounder design still comes out flat.
+Corners run from 8 points (controls) through 14 (rows, fields) to 18 for tiles
+and 26 for the cover card. `cometCard(radius:)` clamps at 22, so a screen written
+against the older, squarer design still reads as the same app.
 
 ## Chrome
 
 There is no navigation bar. The screen starts with its own content.
 
-- **The bar at the bottom** is the desktop's sidebar, flattened: the four
-  surfaces, a grid button for the rest, and the accent `+`. It is flush with the
-  bottom edge, one pixel-bordered on top, and the same colour as the panels.
-  The selected item is an `--accent-soft` rectangle with `--accent-ink` text —
-  the desktop's `.nav-item.active`.
+- **The bar at the bottom floats**: a 24-point rounded surface, one-pixel
+  border, inset 12 points from the sides and 16 from the bottom edge, with the
+  accent `+` as a 52-point rounded square in the middle. Today and Library sit
+  on its left, Calendar and More on its right, and the selected item is
+  `--accent-ink` with a heavier glyph.
+- **There is no drawer.** The desktop's sidebar does not come along: its rows
+  become the More screen — workspace, search, boards, feeds, vault, tools, sync,
+  tags, settings — each an icon tile, a title and a line of detail, grouped into
+  two bordered panels. Search and the boards are screens without a slot in the
+  bar; the bar keeps Library lit while you are in either.
+- **The mark is the app icon**: the comet, clipped to a squircle at the top of
+  the cover card and of More, 34–40 points.
 - **The header inside the scroll** is the desktop's document header: an
   eyebrow in `--text-muted` at 9.5 pt, a title in `--text` at 26–30 pt, a
   subtitle in `--text-secondary`, and small square buttons on the right.

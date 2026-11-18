@@ -2,118 +2,133 @@
 //  Chrome.swift
 //  Comet
 //
-//  No navigation bar. The desktop app's sidebar becomes a bar at the bottom of
-//  the screen: the four surfaces, a way into everything else, and the one
-//  accent button that makes something new. Everything is flush, bordered and
-//  the same colour as the panels above it.
+//  No navigation bar, no drawer. The four places you actually go — Today,
+//  Library, Calendar, More — sit in a bar that floats just off the bottom edge,
+//  with the one button that makes something new in the middle of it. Search
+//  lives inside the Library and the More screen; there is no icon for it to
+//  hide behind, because it is a field on the two screens where you would want
+//  it.
 //
 
 import SwiftUI
 
 enum Tab: String, CaseIterable, Identifiable {
     case today
-    case files
+    case library
     case search
     case studio
+    case calendar
+    case more
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .today: return "Today"
-        case .files: return "Files"
+        case .library: return "Library"
         case .search: return "Search"
-        case .studio: return "Studio"
+        case .studio: return "Boards"
+        case .calendar: return "Calendar"
+        case .more: return "More"
         }
     }
 
     var symbol: String {
         switch self {
         case .today: return "sun.max"
-        case .files: return "folder"
+        case .library: return "folder"
         case .search: return "magnifyingglass"
         case .studio: return "square.grid.2x2"
+        case .calendar: return "calendar"
+        case .more: return "circle.grid.2x2"
         }
     }
+
+    /// Search and the boards are screens but not destinations in the bar: they
+    /// are reached from the Library's own field, and from the More screen. The
+    /// bar lights the Library while you are in either, because that is where
+    /// you came from.
+    var isInBar: Bool { self != .search && self != .studio }
 }
 
-struct BottomDock: View {
+struct BottomBar: View {
     @Environment(\.comet) private var theme
     @Environment(\.type) private var type
 
     @Binding var tab: Tab
-    var unread: Int
-    var onOrbit: () -> Void
-    var onNew: () -> Void = {}
+    var unread: Int = 0
+    var onNew: () -> Void
+
+    private var leading: [Tab] { [.today, .library] }
+    private var trailing: [Tab] { [.calendar, .more] }
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(Tab.allCases) { item in
-                tabButton(item)
+        HStack(spacing: 0) {
+            ForEach(leading) { item in
+                itemButton(item)
             }
 
-            Spacer(minLength: 6)
+            capture
 
-            Button {
-                Haptics.tap()
-                onOrbit()
-            } label: {
-                Image(systemName: "circle.grid.2x2")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(theme.secondary)
-                    .frame(width: 36, height: 36)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(theme.soft)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(theme.hairline, lineWidth: 1)
-                    )
+            ForEach(trailing) { item in
+                itemButton(item)
             }
-            .buttonStyle(PressableStyle())
-            .accessibilityLabel("All surfaces")
-
-            Button {
-                Haptics.press()
-                onNew()
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(theme.onAccent)
-                    .frame(width: 40, height: 36)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(theme.accent)
-                    )
-            }
-            .buttonStyle(PressableStyle())
-            .accessibilityLabel("New item")
         }
-        .padding(.horizontal, 10)
-        .padding(.top, 7)
-        .padding(.bottom, 5)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
         .background(
-            theme.surface
-                .overlay(alignment: .top) { theme.hairline.frame(height: 1) }
-                .ignoresSafeArea(edges: .bottom)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(theme.surface.opacity(0.97))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .strokeBorder(theme.hairline, lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(theme.isDark ? 0.45 : 0.14), radius: 18, x: 0, y: 8)
         )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
     }
 
-    private func tabButton(_ item: Tab) -> some View {
+    private var capture: some View {
+        Button {
+            Haptics.press()
+            onNew()
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 21, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 52, height: 52)
+                .background(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(
+                            LinearGradient(colors: [theme.accent.opacity(0.94), theme.accent],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                        .shadow(color: theme.accent.opacity(0.35), radius: 10, x: 0, y: 5)
+                )
+        }
+        .buttonStyle(PressableStyle(scale: 0.93))
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("New item")
+    }
+
+    private func itemButton(_ item: Tab) -> some View {
         let selected = tab == item
+            || (item == .library && (tab == .search || tab == .studio))
         return Button {
             guard tab != item else { return }
             Haptics.select()
             withAnimation(Motion.snappy) { tab = item }
         } label: {
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: item.symbol)
-                        .font(.system(size: 17, weight: selected ? .semibold : .regular))
-                    if item == .studio && unread > 0 {
+                        .font(.system(size: 19, weight: selected ? .semibold : .regular))
+                    if item == .more && unread > 0 {
                         Circle()
                             .fill(theme.accent)
                             .frame(width: 5, height: 5)
-                            .offset(x: 5, y: -3)
+                            .offset(x: 6, y: -2)
                     }
                 }
                 Text(item.title)
@@ -121,13 +136,10 @@ struct BottomDock: View {
             }
             .foregroundStyle(selected ? theme.accentInk : theme.tertiary)
             .frame(maxWidth: .infinity)
-            .frame(height: 42)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(selected ? theme.accentSoft : Color.clear)
-            )
+            .frame(height: 52)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(PressableStyle(scale: 0.96, haptic: nil))
+        .buttonStyle(PressableStyle(scale: 0.94, haptic: nil))
         .accessibilityLabel(item.title)
     }
 }

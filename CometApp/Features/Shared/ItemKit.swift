@@ -96,7 +96,7 @@ struct FolderTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .bottomTrailing) {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [theme.accentTwo.opacity(theme.isDark ? 0.34 : 0.22),
@@ -124,7 +124,7 @@ struct FolderTile: View {
                 .foregroundStyle(theme.tertiary)
         }
         .padding(10)
-        .cometCard(radius: 24, lift: 0.5)
+        .cometCard(radius: 18, lift: 0.5)
     }
 }
 

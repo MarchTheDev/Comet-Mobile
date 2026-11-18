@@ -55,7 +55,7 @@ struct RootView: View {
                 .environmentObject(model)
                 .environment(\.comet, theme)
                 .environment(\.type, type)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
                 .presentationCornerRadius(34)
                 .presentationBackground(.clear)
@@ -68,16 +68,6 @@ struct RootView: View {
                 .presentationDetents([.medium, .large])
                 .presentationCornerRadius(34)
                 .presentationBackground(.clear)
-        }
-        .overlay {
-            if model.showingOrbit {
-                OrbitOverlay()
-                    .environmentObject(model)
-                    .environment(\.comet, theme)
-                    .environment(\.type, type)
-                    .transition(.opacity.combined(with: .scale(scale: 1.04)))
-                    .zIndex(5)
-            }
         }
         .overlay(alignment: .bottom) {
             if model.toast.shown, let message = model.toast.message {
@@ -95,7 +85,6 @@ struct RootView: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
-        .animation(Motion.spring, value: model.showingOrbit)
         .animation(Motion.spring, value: model.toast.shown)
         .animation(Motion.snappy, value: model.tab)
     }
@@ -105,20 +94,23 @@ struct RootView: View {
         switch model.tab {
         case .today:
             TodayView()
-        case .files:
-            FilesView()
-        case .search:
-            SearchView()
+        case .library, .search:
+            // Search is the Library's own field expanded, so it shares the
+            // screen instead of becoming a fifth place to be.
+            LibrarySurface()
         case .studio:
             StudioView()
+        case .calendar:
+            CalendarScreen()
+        case .more:
+            MoreScreen()
         }
     }
 
     private var dock: some View {
-        BottomDock(tab: $model.tab,
-                   unread: model.unreadTotal,
-                   onOrbit: { model.showingOrbit = true },
-                   onNew: { model.showingNewItem = true })
+        BottomBar(tab: $model.tab,
+                  unread: model.unreadTotal,
+                  onNew: { model.showingNewItem = true })
             .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
@@ -183,141 +175,12 @@ struct DocumentHost: View {
     }
 }
 
-// MARK: - Orbit
-
-struct OrbitOverlay: View {
-    @EnvironmentObject private var model: CometModel
-    @Environment(\.comet) private var theme
-    @Environment(\.type) private var type
-
-    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
-
-    var body: some View {
-        ZStack {
-            theme.canvas
-                .ignoresSafeArea()
-                .overlay(alignment: .top) { theme.hairline.frame(height: 1) }
-                .onTapGesture { close() }
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("EVERYTHING ELSE")
-                                .font(type.label(10, weight: .heavy))
-                                .tracking(1.4)
-                                .foregroundStyle(theme.tertiary)
-                            Text("All surfaces")
-                                .font(type.display(30))
-                                .foregroundStyle(theme.ink)
-                        }
-                        Spacer()
-                        IconOrb(icon: "xmark", size: 34) { close() }
-                    }
-                    .padding(.top, 24)
-
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(Array(Module.allCases.enumerated()), id: \.element.id) { index, module in
-                            Button {
-                                Haptics.press()
-                                model.showingOrbit = false
-                                model.module = module
-                            } label: {
-                                moduleCard(module)
-                            }
-                            .buttonStyle(PressableStyle(scale: 0.97, haptic: nil))
-                            .stagger(index)
-                        }
-                    }
-
-                    Button {
-                        Haptics.tap()
-                        model.showingOrbit = false
-                        model.showingWorkspacePicker = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            Glyph(symbol: "square.stack", size: 38)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(model.workspaceName)
-                                    .font(type.label(15, weight: .bold))
-                                    .foregroundStyle(theme.ink)
-                                Text("Switch workspace")
-                                    .font(type.prose(12))
-                                    .foregroundStyle(theme.tertiary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(theme.tertiary)
-                        }
-                        .padding(14)
-                        .cometCard(radius: 12, lift: 0.5)
-                    }
-                    .buttonStyle(PressableStyle())
-
-                    Text("Comet \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0") · local first, no account")
-                        .font(type.mono(11))
-                        .foregroundStyle(theme.tertiary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 4)
-                        .padding(.bottom, 40)
-                }
-                .padding(.horizontal, 20)
-            }
-        }
-        .task {
-            Haptics.press()
-        }
-    }
-
-    private func moduleCard(_ module: Module) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Glyph(symbol: module.symbol, size: 40)
-                Spacer()
-                if module == .sync {
-                    Text("SOON")
-                        .font(type.label(9.5, weight: .bold))
-                        .tracking(0.8)
-                        .foregroundStyle(theme.accent)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(theme.accent.opacity(0.14)))
-                }
-                if module == .feeds && model.unreadTotal > 0 {
-                    CountBadge(count: model.unreadTotal)
-                }
-                if module == .vault && model.vault.state == .locked {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(theme.tertiary)
-                }
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(module.title)
-                    .font(type.title(18))
-                    .foregroundStyle(theme.ink)
-                Text(module.subtitle)
-                    .font(type.prose(11.5))
-                    .foregroundStyle(theme.tertiary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .frame(height: 142, alignment: .top)
-        .cometCard(radius: 24, lift: 0.7)
-    }
-
-    private func close() {
-        Haptics.tap()
-        withAnimation(Motion.spring) { model.showingOrbit = false }
-    }
-}
-
 // MARK: - New item
 
+/// Quick capture, in the shape of the design: four big tiles that make the
+/// thing the moment you touch them, and one row for a file from elsewhere. The
+/// name field is optional — leave it alone and Comet names the note, the board
+/// or the folder itself, then puts you inside it.
 struct NewItemSheet: View {
     @EnvironmentObject private var model: CometModel
     @Environment(\.comet) private var theme
@@ -328,21 +191,22 @@ struct NewItemSheet: View {
     @State private var showsImport = false
     @FocusState private var focused: Bool
 
-    private let options: [(title: String, subtitle: String, symbol: String, action: NewItemAction)] = [
-        ("Note", "Markdown, saved as you type", "doc.text", .note),
-        ("To-do board", "Lists and cards", "checklist", .todo),
-        ("Whiteboard", "Anything, anywhere", "scribble.variable", .whiteboard),
-        ("Folder", "Somewhere to put things", "folder.badge.plus", .folder),
-        ("Import file", "Anything on this device", "square.and.arrow.down", .importFile),
-    ]
+    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             SheetGrabber()
-            HStack {
-                Text("New")
-                    .font(type.display(28))
-                    .foregroundStyle(theme.ink)
+
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("QUICK CAPTURE")
+                        .font(type.label(9, weight: .heavy))
+                        .tracking(1.4)
+                        .foregroundStyle(theme.tertiary)
+                    Text("Add something new")
+                        .font(type.display(26))
+                        .foregroundStyle(theme.ink)
+                }
                 Spacer()
                 Button {
                     dismiss()
@@ -351,79 +215,95 @@ struct NewItemSheet: View {
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(theme.secondary)
                         .frame(width: 32, height: 32)
-                        .background(Circle().fill(theme.raised))
+                        .background(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous).fill(theme.raised)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .strokeBorder(theme.hairline, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(PressableStyle())
+                .accessibilityLabel("Close")
+            }
+            .padding(.horizontal, 20)
+
+            LazyVGrid(columns: columns, spacing: 12) {
+                tile("New note", "Writes as you type", "square.and.pencil", CaptureTint.blue) {
+                    create(.note)
+                }
+                tile("Task board", "Lists and cards", "checklist", CaptureTint.green) {
+                    create(.todo)
+                }
+                tile("Whiteboard", "Anything, anywhere", "scribble.variable", CaptureTint.amber) {
+                    create(.whiteboard)
+                }
+                tile("Folder", "Somewhere to put things", "folder.badge.plus", CaptureTint.violet) {
+                    create(.folder)
                 }
             }
-            .padding(.horizontal, 22)
+            .padding(.horizontal, 20)
+
+            Button {
+                Haptics.tap()
+                showsImport = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(theme.accentInk)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(theme.accentSoft)
+                        )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Import a file")
+                            .font(type.prose(14))
+                            .foregroundStyle(theme.ink)
+                        Text("Anything on this device, PDFs included")
+                            .font(type.prose(11))
+                            .foregroundStyle(theme.tertiary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.tertiary)
+                }
+                .padding(12)
+                .cometCard(radius: 14, lift: 0.3)
+            }
+            .buttonStyle(PressableStyle(scale: 0.99, haptic: nil))
+            .padding(.horizontal, 20)
 
             HStack(spacing: 8) {
-                Image(systemName: "character.cursor.ibeam")
-                    .font(.system(size: 13, weight: .semibold))
+                Image(systemName: "textformat")
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(theme.tertiary)
-                TextField("Name (optional)", text: $name)
-                    .font(type.prose(14))
+                TextField("Or name it first (optional)", text: $name)
+                    .font(type.prose(13.5))
                     .foregroundStyle(theme.ink)
                     .textInputAutocapitalization(.sentences)
                     .autocorrectionDisabled()
                     .focused($focused)
                     .submitLabel(.done)
                     .onSubmit { create(.note) }
-                if !name.isEmpty {
-                    Button {
-                        name = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(theme.tertiary)
-                    }
-                }
             }
             .padding(.horizontal, 12)
             .frame(height: 40)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(theme.soft)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .strokeBorder(theme.hairline, lineWidth: 1)
                     )
             )
-            .padding(.horizontal, 22)
+            .padding(.horizontal, 20)
 
-            ScrollView {
-                VStack(spacing: 10) {
-                    ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                        Button {
-                            Haptics.press()
-                            perform(option.action)
-                        } label: {
-                            HStack(spacing: 13) {
-                                Glyph(symbol: option.symbol, size: 42)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(option.title)
-                                        .font(type.title(16))
-                                        .foregroundStyle(theme.ink)
-                                    Text(option.subtitle)
-                                        .font(type.prose(12))
-                                        .foregroundStyle(theme.tertiary)
-                                }
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(theme.tertiary)
-                            }
-                            .padding(12)
-                            .cometCard(radius: 12, lift: 0.4)
-                        }
-                        .buttonStyle(PressableStyle(scale: 0.98, haptic: nil))
-                        .stagger(index)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 24)
-            }
+            Spacer(minLength: 0)
         }
-        .padding(.top, 4)
+        .padding(.top, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(theme.canvas.ignoresSafeArea())
         .fileImporter(isPresented: $showsImport,
@@ -436,7 +316,38 @@ struct NewItemSheet: View {
         }
     }
 
-    private enum NewItemAction { case note, todo, whiteboard, folder, importFile }
+    private func tile(_ title: String, _ detail: String, _ symbol: String,
+                      _ tint: Color, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.press()
+            action()
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .fill(tint.opacity(theme.isDark ? 0.22 : 0.13))
+                    )
+                Spacer(minLength: 2)
+                Text(title)
+                    .font(type.title(15))
+                    .foregroundStyle(theme.ink)
+                    .multilineTextAlignment(.leading)
+                Text(detail)
+                    .font(type.prose(10.5))
+                    .foregroundStyle(theme.tertiary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, minHeight: 126, alignment: .leading)
+            .padding(13)
+            .cometCard(radius: 16, lift: 0.4)
+        }
+        .buttonStyle(PressableStyle(scale: 0.97, haptic: nil))
+    }
 
     private func title(for kind: EntryKind) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -456,11 +367,12 @@ struct NewItemSheet: View {
             entry = nil
         }
         guard let entry else {
-            // The model has already put a reason in the alert; leaving the sheet
-            // up means the name can be corrected without starting again.
+            // The model has already put the reason in the alert; keeping the
+            // sheet up means the name can be fixed without starting over.
             return
         }
         name = ""
+        focused = false
         if entry.isFolder {
             model.pendingOpen = nil
             dismiss()
@@ -470,21 +382,14 @@ struct NewItemSheet: View {
             dismiss()
         }
     }
+}
 
-    private func perform(_ action: NewItemAction) {
-        switch action {
-        case .note:
-            create(.note)
-        case .todo:
-            create(.todo)
-        case .whiteboard:
-            create(.whiteboard)
-        case .folder:
-            create(.folder)
-        case .importFile:
-            showsImport = true
-        }
-    }
+/// The four capture tints, taken from the design's tiles.
+enum CaptureTint {
+    static let blue = Color(hex: "#5f7f93")
+    static let green = Color(hex: "#6e8e7b")
+    static let amber = Color(hex: "#b4813f")
+    static let violet = Color(hex: "#7775a8")
 }
 
 // MARK: - Workspaces
@@ -588,6 +493,26 @@ struct WorkspaceSheet: View {
                 model.addWorkspace(url: url)
             case .failure(let error):
                 model.errorMessage = "That folder could not be opened: \(error.localizedDescription)"
+            }
+        }
+    }
+}
+
+// MARK: - Library
+
+/// The Library and the search results are the same screen: the field at the top
+/// filters what is underneath, and the bar's Library button brings it back.
+struct LibrarySurface: View {
+    @EnvironmentObject private var model: CometModel
+
+    var body: some View {
+        ZStack {
+            FilesView()
+                .opacity(model.tab == .library ? 1 : 0)
+                .allowsHitTesting(model.tab == .library)
+            if model.tab == .search {
+                SearchView()
+                    .transition(.opacity)
             }
         }
     }

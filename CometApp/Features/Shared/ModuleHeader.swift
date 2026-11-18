@@ -15,31 +15,37 @@ struct ModuleHeader<Trailing: View>: View {
     let eyebrow: String
     let title: String
     var subtitle: String? = nil
-    let close: () -> Void
+    /// Nil when the module is a tab rather than a sheet: a screen you can
+    /// reach from the bar does not need a button to close it.
+    var close: (() -> Void)? = nil
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Button {
-                    Haptics.tap()
-                    close()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(theme.secondary)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(theme.surface)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .strokeBorder(theme.hairline, lineWidth: 1)
-                        )
+                if let close {
+                    Button {
+                        Haptics.tap()
+                        close()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(theme.secondary)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(theme.surface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(theme.hairline, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(PressableStyle())
+                    .accessibilityLabel("Close")
+                } else {
+                    CometMark(size: 34)
                 }
-                .buttonStyle(PressableStyle())
-                .accessibilityLabel("Close")
 
                 Spacer()
 
@@ -70,7 +76,7 @@ struct ModuleHeader<Trailing: View>: View {
 }
 
 extension ModuleHeader where Trailing == EmptyView {
-    init(eyebrow: String, title: String, subtitle: String? = nil, close: @escaping () -> Void) {
+    init(eyebrow: String, title: String, subtitle: String? = nil, close: (() -> Void)? = nil) {
         self.init(eyebrow: eyebrow, title: title, subtitle: subtitle, close: close) { EmptyView() }
     }
 }

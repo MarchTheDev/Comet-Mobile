@@ -100,7 +100,6 @@ final class CometModel: ObservableObject {
     /// sheet is gone, so the two presentations cannot fight over the screen.
     @Published var pendingOpen: Entry?
     @Published var module: Module?
-    @Published var showingOrbit = false
     @Published var showingNewItem = false
     @Published var showingWorkspacePicker = false
 
@@ -775,7 +774,7 @@ final class CometModel: ObservableObject {
 
     func openFolder(_ entry: Entry) {
         filesPath = entry.relativePath
-        tab = .files
+        tab = .library
         Haptics.tap()
     }
 

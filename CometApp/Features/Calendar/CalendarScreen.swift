@@ -10,7 +10,8 @@
 import SwiftUI
 
 struct CalendarScreen: View {
-    let close: () -> Void
+    /// Nil when Calendar is one of the bar's own screens.
+    var close: (() -> Void)? = nil
 
     @EnvironmentObject private var model: CometModel
     @Environment(\.comet) private var theme

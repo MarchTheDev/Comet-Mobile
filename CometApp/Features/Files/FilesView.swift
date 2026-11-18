@@ -25,6 +25,8 @@ struct FilesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
+                searchPill
+                if model.filesPath.isEmpty { summaryRow }
                 if !model.filesPath.isEmpty { pathPill }
                 filters
                 content
@@ -72,8 +74,8 @@ struct FilesView: View {
     // MARK: Header
 
     private var folderTitle: String {
-        if model.filesPath.isEmpty { return "Files" }
-        return model.entry(at: model.filesPath)?.displayName ?? "Files"
+        if model.filesPath.isEmpty { return "Library" }
+        return model.entry(at: model.filesPath)?.displayName ?? "Library"
     }
 
     private var header: some View {
@@ -124,6 +126,79 @@ struct FilesView: View {
                 .accessibilityLabel("New item")
             }
         }
+    }
+
+    // MARK: Search and counts
+
+    /// The field is a door, not a decoration: tapping it opens the real search
+    /// screen, already focused.
+    private var searchPill: some View {
+        Button {
+            Haptics.tap()
+            withAnimation(Motion.snappy) { model.tab = .search }
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.tertiary)
+                Text("Search notes, boards and names")
+                    .font(type.prose(13))
+                    .foregroundStyle(theme.tertiary)
+                Spacer(minLength: 4)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(theme.soft)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .strokeBorder(theme.hairline, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(PressableStyle(scale: 0.99, haptic: nil))
+    }
+
+    private var summaryRow: some View {
+        let all = model.entries
+        let folders = all.filter { $0.isFolder }.count
+        let files = all.count - folders
+        return HStack(spacing: 0) {
+            summaryCell("\(files)", "Files")
+            divider
+            summaryCell("\(folders)", "Folders")
+            divider
+            summaryCell("\(model.usedTags.count)", "Tags")
+        }
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(theme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(theme.hairline, lineWidth: 1)
+                )
+        )
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(theme.hairline)
+            .frame(width: 1, height: 28)
+    }
+
+    private func summaryCell(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(type.title(19))
+                .foregroundStyle(theme.ink)
+            Text(label)
+                .font(type.label(9.5, weight: .bold))
+                .tracking(0.6)
+                .foregroundStyle(theme.tertiary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var subtitle: String {
@@ -321,7 +396,7 @@ struct FilesView: View {
                 }
                 .padding(.vertical, 4)
                 .padding(.horizontal, 4)
-                .cometCard(radius: 24, lift: 0.5)
+                .cometCard(radius: 18, lift: 0.5)
             }
         }
     }

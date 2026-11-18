@@ -46,72 +46,78 @@ struct TodayView: View {
 
     // MARK: Header
 
+    /// The welcome card: the app's own mark, the date, and a greeting. The
+    /// rings are the comet's orbit, drawn as two hairline circles that run off
+    /// the top-right corner.
     private var header: some View {
-        // The desktop's cover card: one filled panel at the top of the
-        // workspace, carrying the date, the greeting and where you are.
-        ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(
-                    LinearGradient(colors: [theme.accent.opacity(theme.isDark ? 0.55 : 0.92),
-                                            theme.accent.opacity(theme.isDark ? 0.35 : 0.78)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(
-                    LinearGradient(colors: [Color.black.opacity(0.18), .clear],
-                                   startPoint: .leading, endPoint: .trailing)
-                )
+        Button {
+            Haptics.tap()
+            withAnimation(Motion.snappy) { model.tab = .library }
+        } label: {
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [theme.accent.opacity(theme.isDark ? 0.42 : 0.96),
+                                     theme.accent.opacity(theme.isDark ? 0.26 : 0.78),
+                                     theme.accent.opacity(theme.isDark ? 0.2 : 0.62)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
 
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    HStack(spacing: 6) {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 5))
-                        Text(dateLine)
-                            .font(type.label(9.5, weight: .heavy))
-                            .tracking(1.6)
-                    }
-                    .foregroundStyle(theme.onAccent.opacity(0.85))
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                    .frame(width: 190, height: 190)
+                    .offset(x: 120, y: -76)
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+                    .frame(width: 108, height: 108)
+                    .offset(x: 175, y: -30)
 
-                    Spacer()
+                VStack(alignment: .leading, spacing: 0) {
+                    CometMark(size: 40, radius: 12)
+                        .padding(.bottom, 20)
 
-                    Button {
-                        Haptics.tap()
-                        model.showingWorkspacePicker = true
-                    } label: {
-                        Image(systemName: "square.on.square")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(theme.onAccent)
-                            .frame(width: 32, height: 32)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(Color.white.opacity(0.16))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.28), lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(PressableStyle())
-                    .accessibilityLabel("Switch workspace")
+                    Text(dateLine)
+                        .font(type.label(9, weight: .heavy))
+                        .tracking(1.6)
+                        .foregroundStyle(theme.onAccent.opacity(0.72))
+
+                    Text(greeting)
+                        .font(type.display(31))
+                        .foregroundStyle(theme.onAccent)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .padding(.top, 8)
+
+                    Text(model.workspaceName + " · " + todayLine)
+                        .font(type.prose(12))
+                        .foregroundStyle(theme.onAccent.opacity(0.78))
+                        .padding(.top, 8)
                 }
-
-                Spacer(minLength: 18)
-
-                Text(CometDate.greeting())
-                    .font(type.display(38))
-                    .foregroundStyle(theme.onAccent)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.75)
-                Text(model.workspaceName)
-                    .font(type.prose(12.5))
-                    .foregroundStyle(theme.onAccent.opacity(0.8))
-                    .padding(.top, 6)
+                .padding(22)
             }
-            .padding(20)
+            .frame(minHeight: 214, alignment: .topLeading)
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .shadow(color: theme.accent.opacity(theme.isDark ? 0.2 : 0.28), radius: 22, x: 0, y: 12)
         }
-        .frame(minHeight: 176)
-        .cometShadow(theme, lift: 0.6)
+        .buttonStyle(PressableStyle(scale: 0.99, haptic: nil))
+    }
+
+    private var greeting: String {
+        CometDate.greeting()
+    }
+
+    /// "3 notes, 2 events" — the shape of the day, not a count of everything.
+    private var todayLine: String {
+        var parts: [String] = []
+        let notes = model.recentEntries.count
+        if notes > 0 { parts.append(notes == 1 ? "1 recent file" : "\(notes) recent files") }
+        let events = model.events(on: Date()).count
+        if events > 0 { parts.append(events == 1 ? "1 event today" : "\(events) events today") }
+        if parts.isEmpty { parts.append("your space on this device") }
+        return parts.joined(separator: ", ")
     }
 
     // MARK: Focus

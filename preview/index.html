@@ -70,6 +70,7 @@
     box-shadow: 0 4px 14px rgba(82,110,125,.06);
   }
   .card.tight { padding: 4px 14px; }
+  .card.tinted { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 26%, var(--line)); }
   .card.glass { background: var(--surface); }
   .stack { display: flex; flex-direction: column; gap: 10px; }
   .row { display: flex; align-items: center; gap: 10px; }
@@ -123,30 +124,54 @@
   .lens.solid { background: var(--accent); color: #fff; border-color: transparent; font-weight: 800; }
 
   .dockwrap {
-    position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
-    display: flex; align-items: center; gap: 5px;
-    padding: 7px 10px 9px; background: var(--surface);
-    border-top: 1px solid var(--line);
+    position: absolute; left: 12px; right: 12px; bottom: 16px; z-index: 6;
+    display: flex; align-items: center; gap: 2px;
+    padding: 7px 8px; border-radius: 24px;
+    background: color-mix(in srgb, var(--surface) 97%, transparent);
+    border: 1px solid var(--line);
+    box-shadow: 0 14px 34px rgba(36,54,65,.16);
+    backdrop-filter: blur(18px);
   }
-  .dock { flex: 1; display: flex; align-items: center; gap: 2px; border: 0; background: transparent; }
   .tab {
-    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 6px 2px; border-radius: 8px; font-size: 9.5px; font-weight: 700;
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 7px 2px 5px; border-radius: 14px; font-size: 9.5px; font-weight: 700;
     color: var(--ink3); cursor: pointer;
   }
-  .tab .glyph { font-size: 16px; line-height: 1; }
-  .tab.on { background: var(--accent-soft); color: var(--accent-ink); }
-  .orb {
-    width: 36px; height: 36px; border-radius: 8px; flex: none; cursor: pointer;
-    background: var(--soft); border: 1px solid var(--line);
-    display: grid; place-items: center; color: var(--ink2); font-size: 15px;
+  .tab .glyph { font-size: 19px; line-height: 1; }
+  .tab.on { color: var(--accent-ink); }
+  .tab.on .glyph { font-weight: 800; }
+  .cap {
+    width: 52px; height: 52px; flex: none; border-radius: 17px; cursor: pointer;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent));
+    color: #fff; display: grid; place-items: center; font-size: 24px; font-weight: 600;
+    box-shadow: 0 8px 16px color-mix(in srgb, var(--accent) 40%, transparent);
   }
-  .fab {
-    width: 40px; height: 36px; border-radius: 8px; flex: none; cursor: pointer;
-    background: var(--accent); color: #fff; display: grid; place-items: center;
-    font-size: 17px; font-weight: 800;
-  }
-  .tab, .orb, .fab { user-select: none; }
+  .tab, .cap { user-select: none; }
+  .mark { width: 34px; height: 34px; border-radius: 10px; object-fit: cover; display: block;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); }
+  .mark.big { width: 40px; height: 40px; border-radius: 12px; }
+  .summary { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 14px;
+    background: var(--surface); padding: 12px 0; }
+  .summary > div { flex: 1; text-align: center; }
+  .summary b { display: block; font-size: 19px; font-weight: 760; letter-spacing: -.03em; color: var(--ink); }
+  .summary small { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); font-weight: 800; }
+  .summary i { width: 1px; height: 28px; background: var(--line); }
+  .searchpill { display: flex; align-items: center; gap: 9px; padding: 0 12px; height: 42px;
+    border-radius: 11px; border: 1px solid var(--line); background: var(--soft); color: var(--ink3);
+    font-size: 13px; cursor: pointer; }
+  .morerow { display: flex; align-items: center; gap: 12px; padding: 9px 12px; cursor: pointer;
+    border-bottom: 1px solid var(--line); }
+  .morerow:last-child { border-bottom: 0; }
+  .morerow .tint { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 15px; flex: none; }
+  .morerow b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
+  .morerow span.d { font-size: 11px; color: var(--ink3); }
+  .morerow .chev { margin-left: auto; color: var(--ink3); font-size: 12px; }
+  .caps { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cap-card { border: 1px solid var(--line); border-radius: 16px; background: var(--surface);
+    padding: 13px; display: flex; flex-direction: column; gap: 8px; min-height: 126px; cursor: pointer; }
+  .cap-card .tint { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; }
+  .cap-card b { font-size: 15px; font-weight: 750; letter-spacing: -.02em; }
+  .cap-card span { font-size: 10.5px; color: var(--ink3); }
 
   .orbit {
     position: absolute; inset: 0; z-index: 8; display: none;
@@ -217,14 +242,18 @@
   .sw i { width: 34px; height: 34px; border-radius: 8px; display: block; border: 1px solid var(--line); }
   .sw.on i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 
-  .cover { position:relative; border-radius:12px; padding:18px 18px 20px; min-height:168px; color:#fff;
-    background: linear-gradient(150deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #12212a));
-    box-shadow: 0 5px 16px rgba(82,110,125,.14); display:flex; flex-direction:column; justify-content:flex-end; }
-  .cover .ce { font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:800; color:rgba(255,255,255,.82); }
-  .cover h2 { font-size:34px; line-height:1.06; letter-spacing:-.055em; margin:10px 0 6px; font-weight:800; }
-  .cover p { margin:0; font-size:12px; color:rgba(255,255,255,.82); }
-  .cover .cbtn { position:absolute; top:14px; right:14px; width:32px; height:32px; border-radius:8px; display:grid; place-items:center;
-    border:1px solid rgba(255,255,255,.3); background:rgba(255,255,255,.14); font-size:13px; cursor:pointer; }
+  .cover { position:relative; overflow:hidden; border-radius:26px; padding:22px; min-height:214px; color:#fff;
+    background: linear-gradient(142deg, color-mix(in srgb, var(--accent) 78%, #16262f),
+                var(--accent) 60%, color-mix(in srgb, var(--accent) 70%, #7d9dab));
+    box-shadow: 0 16px 30px rgba(40,68,84,.2);
+    display:flex; flex-direction:column; justify-content:flex-end; }
+  .cover .ce { position:relative; z-index:1; font-size:9px; letter-spacing:.16em; text-transform:uppercase; font-weight:800; color:rgba(255,255,255,.72); }
+  .cover h2 { position:relative; z-index:1; font-size:31px; line-height:1.08; letter-spacing:-.05em; margin:8px 0 8px; font-weight:780; }
+  .cover p { position:relative; z-index:1; margin:0; font-size:12px; color:rgba(255,255,255,.78); }
+  .cover-mark { position:relative; z-index:1; width:40px; height:40px; border-radius:12px; margin-bottom:20px; }
+  .cover .ring { position:absolute; border:1px solid rgba(255,255,255,.13); border-radius:50%; }
+  .cover .ring.r1 { width:190px; height:190px; top:-76px; right:-45px; }
+  .cover .ring.r2 { width:108px; height:108px; top:-30px; right:-13px; }
   .footer { max-width: 660px; color: #5f7782; font-size: 12px; line-height: 1.7; text-align: center; }
   .footer b { color: #304653; font-weight: 800; }
 
@@ -263,7 +292,6 @@
         </span>
       </div>
       <div class="scroll" id="view"></div>
-      <div class="orbit" id="orbit"></div>
       <div class="dockwrap" id="dockwrap"></div>
     </div>
   </div>
@@ -294,10 +322,12 @@ const PALETTES = [
 ];
 const TABS = [
   { id:"today", label:"Today", glyph:"◉" },
-  { id:"files", label:"Files", glyph:"▤" },
-  { id:"search", label:"Search", glyph:"⌕" },
-  { id:"studio", label:"Studio", glyph:"◫" },
+  { id:"files", label:"Library", glyph:"▤" },
+  { id:"calendar", label:"Calendar", glyph:"▦" },
+  { id:"more", label:"More", glyph:"⠿" },
 ];
+const MARK = `<img class="mark" src="comet-mark.png" alt="Comet">`;
+const MARK_BIG = `<img class="mark big" src="comet-mark.png" alt="Comet">`;
 const DESTS = [
   { id:"calendar", label:"Calendar", note:"Months, events, .ics", g:"▦", c:"accent" },
   { id:"feeds", label:"Feeds", note:"Unread, saved, OPML", g:"◍", c:"accent2" },
@@ -307,7 +337,7 @@ const DESTS = [
   { id:"settings", label:"Settings", note:"Palette, type, about", g:"⚙", c:"accent2" },
 ];
 
-const state = { tab:"today", palette:"comet", orbit:false, stack:[] };
+const state = { tab:"today", palette:"comet", stack:[] };
 
 const el = id => document.getElementById(id);
 const current = () => state.stack[state.stack.length - 1];
@@ -351,11 +381,12 @@ const header = (eyebrow, title, sub) => `
 
 const screenToday = () => `
   <div class="pad" style="padding-top:12px">
-    <div class="cover">
-      <div class="cbtn" onclick="openScreen('files')">⧉</div>
-      <div class="ce">◉ ${new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' }).toUpperCase()}</div>
+    <div class="cover" onclick="state.tab='files'; render()">
+      <span class="ring r1"></span><span class="ring r2"></span>
+      <img class="cover-mark" src="comet-mark.png" alt="">
+      <div class="ce">${new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' }).toUpperCase()}</div>
       <h2>Good evening,<br>March</h2>
-      <p>Comet · three notes touched today, one thing at 18:30.</p>
+      <p>Comet · 3 recent files, 2 events today</p>
     </div>
   </div>
 
@@ -432,8 +463,18 @@ const fileRow = (glyph, name, meta) => `
   </div>`;
 
 const screenFiles = () => `
-  ${header("Workspace", "Files", "Comet · 24 items")}
-  <div class="pad" style="margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+  ${header("Library", "Library", "Comet · 24 items")}
+  <div class="pad" style="margin-top:14px">
+    <div class="summary">
+      <div><b>24</b><small>Files</small></div><i></i>
+      <div><b>3</b><small>Folders</small></div><i></i>
+      <div><b>6</b><small>Tags</small></div>
+    </div>
+  </div>
+  <div class="pad" style="margin-top:12px">
+    <div class="searchpill" onclick="openScreen('search')">⌕ Search notes, boards and names</div>
+  </div>
+  <div class="pad" style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <span class="pathpill">▤ Comet</span>
     <span class="muted">2.4 GB of 5 GB</span>
   </div>
@@ -736,6 +777,7 @@ const screenSettings = () => `
 
 const SCREENS = {
   today: screenToday, files: screenFiles, search: screenSearch, studio: screenStudio,
+  more: screenMore,
   note: screenNote, board: screenBoard, calendar: screenCalendar, feeds: screenFeeds,
   vault: screenVault, tools: screenTools, sync: screenSync, settings: screenSettings,
 };
@@ -744,55 +786,73 @@ const SCREENS = {
 
 function renderChrome() {
   el("dockwrap").style.display = state.stack.length ? "none" : "flex";
+  const item = t => `<div class="tab ${(state.tab === t.id || (t.id === "files" && state.tab === "search")) && !state.stack.length ? 'on' : ''}" data-tab="${t.id}"><span class="glyph">${t.glyph}</span><span>${t.label}</span></div>`;
   el("dockwrap").innerHTML = `
-    <div class="dock">
-      ${TABS.map(t => `<div class="tab ${state.tab === t.id && !state.stack.length ? 'on' : ''}" data-tab="${t.id}"><span class="glyph">${t.glyph}</span><span>${t.label}</span></div>`).join("")}
-    </div>
-    <div class="orb" id="orbBtn" title="All surfaces">▦</div>
-    <div class="fab" id="newBtn" title="New">+</div>`;
+    ${item(TABS[0])}
+    ${item(TABS[1])}
+    <div class="cap" id="newBtn" title="New item">+</div>
+    ${item(TABS[2])}
+    ${item(TABS[3])}`;
   el("dockwrap").addEventListener("click", e => {
     const tab = e.target.closest(".tab");
     if (tab) { state.tab = tab.dataset.tab; state.stack = []; render(); return; }
-    if (e.target.closest("#orbBtn")) toggleOrbit();
     if (e.target.closest("#newBtn")) openNewSheet();
   });
 }
 
-function orbitMarkup() {
-  return `
-    <div class="row between">
-      <div>
-        <div class="eyebrow">Everything else</div>
-        <div style="font-size:27px;font-weight:640;letter-spacing:-.03em;margin-top:6px">Orbit</div>
-      </div>
-      <div class="lens" id="closeOrbit">×</div>
-    </div>
-    <div class="orbitgrid">
-      ${DESTS.map(d => `
-        <div class="dest" data-dest="${d.id}">
-          <span class="g orbicon ${d.c === 'accent2' ? 'alt' : ''}">${d.g}</span>
-          <div><b>${d.label}</b><span>${d.note}</span></div>
-        </div>`).join("")}
-    </div>
-    <div class="card tight" style="margin-top:auto">
-      <div class="row between">
-        <div><div class="label">Workspace</div><div style="font-size:13.5px;font-weight:550;margin-top:4px">Comet</div></div>
-        <span class="chip">Switch</span>
-      </div>
+function screenMore() {
+  const row = (tint, glyph, label, detail, dest) => `
+    <div class="morerow" data-dest="${dest}">
+      <span class="tint" style="background:color-mix(in srgb, ${tint} 14%, transparent); color:${tint}">${glyph}</span>
+      <div><b>${label}</b><span class="d">${detail}</span></div>
+      <span class="chev">›</span>
     </div>`;
-}
+  return `
+    <div class="pad" style="padding-top:16px">
+      <div class="row" style="gap:12px;align-items:center">
+        ${MARK_BIG}
+        <div>
+          <div class="label">Comet</div>
+          <h2 class="title" style="margin-top:4px">Everything else</h2>
+        </div>
+      </div>
+    </div>
 
-function toggleOrbit(force) {
-  state.orbit = force === undefined ? !state.orbit : force;
-  const box = el("orbit");
-  box.classList.toggle("open", state.orbit);
-  box.innerHTML = state.orbit ? orbitMarkup() : "";
-  if (state.orbit) {
-    box.querySelector("#closeOrbit").onclick = () => toggleOrbit(false);
-    box.querySelectorAll("[data-dest]").forEach(d => {
-      d.onclick = () => { toggleOrbit(false); openDest(d.dataset.dest); };
-    });
-  }
+    <div class="pad" style="margin-top:18px">
+      <div class="card tight" style="display:flex;align-items:center;gap:12px;padding:13px 14px;cursor:pointer" onclick="toast('Workspace picker')">
+        ${MARK}
+        <div><div style="font-size:15px;font-weight:700">Comet</div><div class="muted" style="margin-top:2px">On this device · 24 items</div></div>
+        <span class="chev" style="margin-left:auto;color:var(--ink3)">›</span>
+      </div>
+      <div class="searchpill" style="margin-top:12px" onclick="openScreen('search')">⌕ Search anything <span class="muted" style="margin-left:auto">names, notes, boards</span></div>
+    </div>
+
+    <div class="pad" style="margin-top:18px"><div class="label">Tools &amp; spaces</div>
+      <div class="card" style="padding:0;margin-top:9px;overflow:hidden">
+        ${row("#6e8e7b", "◫", "Boards &amp; whiteboards", "3 boards", "studio")}
+        ${row("#bd7b50", "◍", "Feeds", "RSS, Atom and JSON · 7 unread", "feeds")}
+        ${row("#6d73a0", "⌘", "Passwords", "AES-256-GCM vault, locked", "vault")}
+        ${row("#778f9d", "✦", "Tools", "Five offline tools", "tools")}
+        ${row("#617f91", "⇄", "Sync", "Across devices, next release", "sync")}
+      </div>
+    </div>
+
+    <div class="pad" style="margin-top:18px"><div class="label">Comet</div>
+      <div class="card" style="padding:0;margin-top:9px;overflow:hidden">
+        ${row("#617f91", "▤", "All files", "24 items in this workspace", "files")}
+        ${row("#b48a45", "#", "Tags", "6 in use", "files")}
+        ${row("#778f9d", "⚙", "Settings", "Palette, type, workspace, backup", "settings")}
+      </div>
+    </div>
+
+    <div class="pad" style="margin-top:18px">
+      <div class="card tinted" style="display:flex;gap:12px;align-items:flex-start">
+        <span class="tint" style="width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-ink)">✓</span>
+        <div><div style="font-size:14px;font-weight:700">Private by default</div>
+        <div class="muted" style="margin-top:3px;line-height:1.5">No account, no database. Your files stay in the folder you chose, and sync will be opt-in.</div></div>
+      </div>
+      <div class="muted" style="text-align:center;margin:18px 0 0;font-size:10.5px">Comet 1.0.2 · GPL-3.0</div>
+    </div>`;
 }
 
 function toast(text) {
@@ -804,23 +864,32 @@ function toast(text) {
 }
 
 function openNewSheet() {
-  const opts = [
-    { k:"note", g:"▤", t:"Note", d:"Markdown, saved as you type" },
-    { k:"todo", g:"◍", t:"To-do board", d:"Lists and cards" },
-    { k:"whiteboard", g:"◫", t:"Whiteboard", d:"Anything, anywhere" },
-    { k:"folder", g:"▤", t:"Folder", d:"Somewhere to put things" },
+  const tiles = [
+    { k:"note", g:"✎", t:"New note", d:"Writes as you type", c:"#5f7f93" },
+    { k:"todo", g:"☑", t:"Task board", d:"Lists and cards", c:"#6e8e7b" },
+    { k:"whiteboard", g:"◫", t:"Whiteboard", d:"Anything, anywhere", c:"#b4813f" },
+    { k:"folder", g:"▤", t:"Folder", d:"Somewhere to put things", c:"#7775a8" },
   ];
   const wrap = document.createElement("div");
   wrap.className = "sheetwrap";
   wrap.innerHTML = `<div class="sheet"><div class="grab"></div>
-    <div class="row between" style="margin-bottom:12px">
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.05em">New</div>
+    <div class="row between" style="margin-bottom:14px;align-items:flex-start">
+      <div><div class="label">Quick capture</div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.04em;margin-top:5px">Add something new</div></div>
       <div class="lens" id="closeNew">×</div>
     </div>
-    ${opts.map(o => `<div class="card" data-make="${o.k}" style="display:flex;gap:11px;align-items:center;margin-bottom:8px;cursor:pointer">
-      <span class="orbicon">${o.g}</span>
-      <div><div style="font-size:13px;font-weight:750">${o.t}</div><div class="muted" style="margin-top:2px">${o.d}</div></div>
-    </div>`).join("")}
+    <div class="caps">
+      ${tiles.map(o => `<div class="cap-card" data-make="${o.k}">
+        <span class="tint" style="background:color-mix(in srgb, ${o.c} 14%, transparent); color:${o.c}">${o.g}</span>
+        <b>${o.t}</b><span>${o.d}</span>
+      </div>`).join("")}
+    </div>
+    <div class="card tight" style="display:flex;gap:11px;align-items:center;margin-top:12px;cursor:pointer" data-make="import">
+      <span class="tint" style="width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-ink)">⇣</span>
+      <div><div style="font-size:14px;font-weight:600">Import a file</div><div class="muted" style="margin-top:2px">Anything on this device, PDFs included</div></div>
+      <span class="chev" style="margin-left:auto;color:var(--ink3)">›</span>
+    </div>
+    <div class="searchpill" style="margin-top:12px">✎ Or name it first (optional)</div>
   </div>`;
   el("screen").appendChild(wrap);
   wrap.querySelector("#closeNew").onclick = () => wrap.remove();
@@ -832,7 +901,8 @@ function openNewSheet() {
       if (kind === "note") { openScreen("note"); toast("Created Notes/Untitled.md"); }
       else if (kind === "folder") toast("Created a folder in the workspace");
       else if (kind === "todo") { openScreen("board"); toast("Created Boards/Untitled.comet-todo"); }
-      else toast("Created Boards/Untitled.comet-whiteboard");
+      else if (kind === "whiteboard") toast("Created Boards/Untitled.comet-whiteboard");
+      else toast("Choose a file to import");
     };
   });
 }
@@ -847,7 +917,14 @@ function render() {
   view.innerHTML = SCREENS[id]();
   view.scrollTop = 0;
   renderChrome();
-  if (state.orbit) toggleOrbit(true);
+  view.querySelectorAll("[data-dest]").forEach(node => {
+    node.onclick = () => {
+      const dest = node.dataset.dest;
+      if (dest === "files") { state.tab = "files"; state.stack = []; render(); return; }
+      if (dest === "studio") { state.stack = ["studio"]; render(); return; }
+      openDest(dest);
+    };
+  });
 }
 
 buildPalettes();

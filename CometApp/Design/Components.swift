@@ -17,7 +17,7 @@ struct CometCard: ViewModifier {
     var lift: CGFloat = 1
     var tinted: Bool = false
 
-    private var corner: CGFloat { min(radius, 14) }
+    private var corner: CGFloat { min(radius, 22) }
 
     func body(content: Content) -> some View {
         content
@@ -48,7 +48,7 @@ struct GlassPanel: ViewModifier {
     @Environment(\.comet) private var theme
     var radius: CGFloat = 12
 
-    private var corner: CGFloat { min(radius, 14) }
+    private var corner: CGFloat { min(radius, 22) }
 
     func body(content: Content) -> some View {
         content
@@ -353,5 +353,31 @@ struct CountBadge: View {
             .background(
                 RoundedRectangle(cornerRadius: 5, style: .continuous).fill(theme.accentSoft)
             )
+    }
+}
+
+// MARK: - The mark
+
+/// The app icon, used as the brand mark. It is the comet: a bright head with a
+/// long tail across a dark sky, with aurora colour along the bottom. Clipped to
+/// the same squircle radius as a home-screen icon so it reads as *the app*, not
+/// as a picture of a comet.
+struct CometMark: View {
+    var size: CGFloat = 34
+    var radius: CGFloat? = nil
+
+    private var corner: CGFloat { radius ?? size * 0.29 }
+
+    var body: some View {
+        Image("CometMark")
+            .resizable()
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+            )
+            .accessibilityHidden(true)
     }
 }

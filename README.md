@@ -33,25 +33,32 @@ License, in the same weights the desktop uses — 800 for titles and eyebrows, 7
 for labels, 500 for reading. Headings are tight and small, the way they are on
 the desktop, rather than generous the way they are in iOS marketing shots.
 
-**Flat panels, not glass.** Cards are one-pixel-bordered surfaces at a 12-point
-corner radius with a barely-there shadow. Buttons are 38-point rectangles with
-an 8-point radius. Chips are small, square-shouldered and quiet. Nothing blurs,
-nothing glows, and there is no gradient anywhere except the cover card, which is
-the accent colour, as on the desktop.
+**Soft panels, not glass.** Cards are one-pixel-bordered surfaces with generous
+corners — 16 to 26 points — and a shadow that lifts the floating bar off the
+content. Chips are small, square-shouldered and quiet, icon tiles are tinted
+squares, and the only filled panels are the cover card and the one accent action
+on a screen. Nothing blurs except the bar's own backdrop, nothing glows.
 
-**No bar at the top.** That still holds. The desktop's sidebar becomes a bar at
-the bottom of the screen: Today, Files, Search, Studio, a grid that opens
-everything else, and the accent `+` that makes a note, a board, a whiteboard or
-a folder. Titles live inside the content, above the thing they name.
+**No bar at the top, and no drawer.** The bar floats just off the bottom edge:
+Today, Library, the accent `+` in the middle, Calendar, More. There is no
+hamburger and nothing hiding behind one — the desktop's entire sidebar — boards,
+feeds, the vault, tools, sync, settings, tags, the workspace — is a plain list of
+rows on More. Search is a field on the Library and a row on More, not a fifth
+icon. Titles live inside the content, above the thing they name.
+
+**The mark is the app icon.** The comet — bright head, long tail, aurora along
+the bottom — appears at the top of the cover card and at the top of More, at the
+size and radius of a home-screen icon.
 
 ## What is inside
 
 | Surface | What it does |
 | --- | --- |
-| **Today** | A cover card with the date and the workspace, pinned notes, today's events, unread reading, what you touched last, and four doors to the rest. |
-| **Files** | The folder itself: a path pill, filter chips (All / Folders / Notes / Boards / Media), tag chips, folders as tiles, files as rows, sort, pin, favourite, tags, rename, move, delete, import. |
-| **Search** | Filenames, note text and boards, matched as you type, with the path under every result. |
-| **Studio** | To-do boards and whiteboards on one bench, each with a live miniature. |
+| **Today** | The welcome card with the mark, the date and the shape of the day, then pinned notes, today's events, unread reading and what you touched last. |
+| **Library** | The folder itself: a counts card (files, folders, tags), a search field, filter chips (All / Folders / Notes / Boards / Media), tag chips, folders as tiles, files as rows, sort, pin, favourite, tags, rename, move, delete, import. |
+| **More** | Everything the desktop keeps in its sidebar: the workspace, search, boards and whiteboards, feeds, passwords, tools, sync, tags, settings — one list, one scroll. |
+| **Search** | Filenames, note text and boards, matched as you type, with the path under every result. Opened from the Library field or from More. |
+| **Studio** | To-do boards and whiteboards on one bench, each with a live miniature. Opened from More. |
 | **Note** | Markdown in two modes: reading, and writing with a formatting bar that edits around the cursor. Autosaves; shows words and reading time. |
 | **Boards** | Kanban lists you can tick in place, move between lists, and edit in a sheet; and a whiteboard you can pan, pinch, draw on, and fill with text, to-do, shape and link cards. |
 | **Calendar** | Months, days, events and notes, on the device, exporting a standard `.ics`. |
