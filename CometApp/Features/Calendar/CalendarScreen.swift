@@ -75,7 +75,7 @@ struct CalendarScreen: View {
                         .font(type.prose(11))
                         .foregroundStyle(theme.tertiary)
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 30)
+                        .padding(.bottom, 118)
                 }
             }
             .scrollIndicators(.hidden)
