@@ -101,25 +101,47 @@ final class WorkspaceStore {
 
     // MARK: - Paths
 
+    /// Builds a URL by *appending components* to the workspace root, never by
+    /// appending a path string and then checking it with a prefix test.
+    ///
+    /// The prefix test used to compare `standardizedFileURL` paths, and iOS
+    /// resolves `/var` to `/private/var` for some URLs but not others — a folder
+    /// that exists standardizes one way, a file that does not exist yet the
+    /// other. The comparison then failed for every *new* name, and creating a
+    /// note reported "That name is not allowed" while the list of existing
+    /// files looked perfectly fine. Appending components has no such asymmetry,
+    /// and rejecting `..` makes it impossible to leave the workspace.
     func url(for relativePath: String) -> URL? {
         guard let root else { return nil }
         if relativePath.isEmpty { return root }
-        let candidate = root.appendingPathComponent(relativePath)
-        let standardized = candidate.standardizedFileURL
-        let base = root.standardizedFileURL.path
-        guard standardized.path == base || standardized.path.hasPrefix(base + "/") else { return nil }
-        guard !relativePath.components(separatedBy: "/").contains("..") else { return nil }
-        return candidate
+        let parts = relativePath.split(separator: "/", omittingEmptySubsequences: true)
+        guard !parts.isEmpty else { return root }
+        guard !parts.contains(where: { $0 == ".." || $0 == "." }) else { return nil }
+        var url = root
+        for part in parts {
+            url.appendPathComponent(String(part))
+        }
+        return url
     }
 
     func relativePath(of url: URL) -> String? {
         guard let root else { return nil }
-        let base = root.standardizedFileURL.path
-        let path = url.standardizedFileURL.path
-        guard path.hasPrefix(base) else { return nil }
-        var relative = String(path.dropFirst(base.count))
-        while relative.hasPrefix("/") { relative.removeFirst() }
-        return relative
+        // Accept either spelling of the root: the container is reached as
+        // `/var/...` and as `/private/var/...`, and which one a URL carries
+        // depends on where it came from. Only the root decides what is inside;
+        // no other prefix is ever accepted.
+        let bases = [root.standardizedFileURL.pathComponents,
+                     root.resolvingSymlinksInPath().standardizedFileURL.pathComponents]
+        let targets = [url.standardizedFileURL.pathComponents,
+                       url.resolvingSymlinksInPath().standardizedFileURL.pathComponents]
+        for base in bases {
+            for target in targets {
+                guard base.count <= target.count, Array(target.prefix(base.count)) == base else { continue }
+                let relative = target.dropFirst(base.count).joined(separator: "/")
+                if !relative.isEmpty { return relative }
+            }
+        }
+        return nil
     }
 
     // MARK: - Listing
@@ -213,6 +235,7 @@ final class WorkspaceStore {
 
     @discardableResult
     func createFile(folder: String, name: String, contents: String) throws -> Entry {
+        guard root != nil else { throw WorkbookError("Comet has no folder open. Choose one first.") }
         let path = availablePath(folder: folder, name: name)
         guard let url = url(for: path) else { throw WorkbookError("That name is not allowed.") }
         let parent = url.deletingLastPathComponent()
@@ -237,6 +260,7 @@ final class WorkspaceStore {
 
     @discardableResult
     func createFolder(folder: String, name: String) throws -> Entry {
+        guard root != nil else { throw WorkbookError("Comet has no folder open. Choose one first.") }
         let path = availablePath(folder: folder, name: name)
         guard let url = url(for: path) else { throw WorkbookError("That name is not allowed.") }
         do {
