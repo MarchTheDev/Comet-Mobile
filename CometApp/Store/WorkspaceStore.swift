@@ -148,16 +148,23 @@ final class WorkspaceStore {
 
     private static let skipDirectories: Set<String> = [".git", "node_modules", ".Trash"]
 
+    /// Walks the workspace and names every entry by where it sits in the walk,
+    /// not by comparing its path with the root's path. That comparison is what
+    /// broke on a symlinked root: the file system returns children under one
+    /// spelling of the path and the root was opened under another, so every
+    /// entry looked like it was outside the workspace and the list came back
+    /// empty. Carrying the relative path down the walk cannot disagree with
+    /// itself.
     func scan() -> [Entry] {
         guard let root else { return [] }
         let manager = FileManager.default
         var results: [Entry] = []
-        var queue: [URL] = [root]
+        var queue: [(url: URL, path: String)] = [(root, "")]
         var visited = 0
 
         while let folder = queue.popLast() {
             guard let children = try? manager.contentsOfDirectory(
-                at: folder,
+                at: folder.url,
                 includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .isSymbolicLinkKey],
                 options: [.skipsHiddenFiles]
             ) else { continue }
@@ -169,7 +176,7 @@ final class WorkspaceStore {
                 if values?.isSymbolicLink == true { continue }
                 let isDirectory = values?.isDirectory ?? false
                 if isDirectory && WorkspaceStore.skipDirectories.contains(name) { continue }
-                guard let relative = relativePath(of: child), !relative.isEmpty else { continue }
+                let relative = folder.path.isEmpty ? name : folder.path + "/" + name
                 let kind = EntryKind.detect(name: name, isDirectory: isDirectory)
                 results.append(Entry(
                     relativePath: relative,
@@ -181,7 +188,7 @@ final class WorkspaceStore {
                 ))
                 visited += 1
                 if visited >= WorkspaceStore.maximumEntries { break }
-                if isDirectory { queue.append(child) }
+                if isDirectory { queue.append((child, relative)) }
             }
             if visited >= WorkspaceStore.maximumEntries { break }
         }

@@ -173,18 +173,6 @@
   .cap-card b { font-size: 15px; font-weight: 750; letter-spacing: -.02em; }
   .cap-card span { font-size: 10.5px; color: var(--ink3); }
 
-  .orbit {
-    position: absolute; inset: 0; z-index: 8; display: none;
-    padding: 44px 20px 30px; flex-direction: column; background: var(--canvas);
-  }
-  .orbit.open { display: flex; animation: rise .26s cubic-bezier(.2,.9,.2,1); }
-  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-  .orbitgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 16px; }
-  .dest { border-radius: 10px; padding: 14px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 3px 10px rgba(82,110,125,.05); }
-  .dest .g { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; }
-  .dest b { font-size: 13px; font-weight: 750; }
-  .dest span { font-size: 10.5px; color: var(--ink3); display: block; margin-top: 2px; }
-
   .note h1 { font-size: 25px; letter-spacing: -.05em; margin: 0 0 4px; font-weight: 800; }
   .note .body { font-size: 14px; line-height: 1.9; color: var(--ink2); }
   .note .body h3 { font-size: 16px; margin: 24px 0 6px; color: var(--ink); font-weight: 800; letter-spacing: -.02em; }
@@ -299,7 +287,7 @@
 
 <div class="footer">
   <p><b>What this is.</b> A static reproduction of the app's interface for looking at, not the app itself. Notes, files, boards, feeds, calendar, vault, tools and the readers are all native SwiftUI in <code>CometApp/</code>; this page repeats the layout and the palette system in HTML so the design can be reviewed in a browser.</p>
-  <p>Try the <b>+</b> in the bottom bar: in the app it writes a real file into the workspace. Here it only says what it would write. The parts a browser cannot show are the Taptic Engine, sheets springing from the bottom edge, and pinch-to-zoom.</p>
+  <p>Try the <b>+</b> in the middle of the bar: in the app it writes a real file into the workspace. Here it only says what it would write. Everything the desktop app keeps in its sidebar is a row on <b>More</b>. The parts a browser cannot show are the Taptic Engine, sheets springing from the bottom edge, and pinch-to-zoom.</p>
 </div>
 
 <script>

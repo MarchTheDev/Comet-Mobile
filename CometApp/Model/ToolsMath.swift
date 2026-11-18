@@ -336,19 +336,34 @@ enum PercentTool {
 enum PasswordGenerator {
     static let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*-_+")
 
+    /// Always contains at least one uppercase letter, one lowercase letter, one
+    /// digit and one symbol, then is filled from the whole alphabet and
+    /// shuffled. A generator that only *usually* includes a class makes a
+    /// password that fails the site it is for.
     static func generate(length: Int = 20) -> String {
         let count = max(6, min(length, 128))
-        var result = ""
-        while result.count < count {
-            for value in (0..<64).map({ _ in UInt8.random(in: 0...255) }) {
-                // Rejection sampling avoids modulo bias.
-                if Int(value) < 256 - (256 % alphabet.count) {
-                    result.append(alphabet[Int(value) % alphabet.count])
-                }
-                if result.count == count { break }
+        let groups = [
+            Array("ABCDEFGHJKLMNPQRSTUVWXYZ"),
+            Array("abcdefghijkmnopqrstuvwxyz"),
+            Array("23456789"),
+            Array("!@#$%*-_+")
+        ]
+        var characters: [Character] = groups.map { randomCharacter(from: $0) }
+        while characters.count < count {
+            characters.append(randomCharacter(from: alphabet))
+        }
+        characters.shuffle()
+        return String(characters.prefix(count))
+    }
+
+    private static func randomCharacter(from pool: [Character]) -> Character {
+        // Rejection sampling avoids modulo bias.
+        while true {
+            let value = Int(UInt8.random(in: 0...255))
+            if value < 256 - (256 % pool.count) {
+                return pool[value % pool.count]
             }
         }
-        return result
     }
 
     static func strength(of password: String) -> Double {
